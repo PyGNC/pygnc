@@ -1,0 +1,7 @@
+[deps]
+Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
+LibSerialPort = "a05a14c7-6e3b-5ba9-90a2-45558833e1df"
+Plotly = "58dd65bb-95f3-509e-9936-c39a10fdeae7"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+SatelliteDynamics = "0e7c1a32-1b9f-5532-88a4-e668712d6a4c"
+SatellitePlayground = "42def6c6-fd6a-4211-8419-600c79e00ff9"

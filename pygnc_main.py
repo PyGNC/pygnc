@@ -9,12 +9,12 @@ import os
 import sys
 import time
 
-import tasks.orbit_estimator as orbit_estimator
+import pygnc.tasks.orbit_estimator as orbit_estimator_task
 
 
 def start_processes():
     processes = dict()
-    orbit_estimator_p = Process(target=orbit_estimator.main, args=("~/sense.bin"))
+    orbit_estimator_p = Process(target=orbit_estimator_task.main, args=("~/sense.bin",))
     orbit_estimator_p.start()
     processes["orbit_estimator"] = orbit_estimator_p
 

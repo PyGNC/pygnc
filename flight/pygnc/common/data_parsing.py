@@ -36,7 +36,7 @@ def batch_gps_data_to_message(gps_data):
     """
     Convert the output of `unpack_batch_gps_packet` to GPSMessage
     """
-    return messages.SensorMessage(
+    return messages.GPSMessage(
         spacecraft_time=gps_data[0],
         gps_time_status=gps_data[1],
         gps_week=gps_data[2],
@@ -107,17 +107,16 @@ def batch_sensor_data_to_message(sensor_data):
 
 
 def unpack_batch_sensor_gps_packet(sensor_gps_packet):
-    # last two bytes should be \r\n
-    if not sensor_gps_packet[-2:] == b"\r\n":
-        raise ValueError(
-            "Sensor packet improperly formed, terminating `\\r\\n` missing"
-        )
-    sensor_gps_packet = sensor_gps_packet[0:-2]  # remove terminating characters
-    if (
-        not len(sensor_gps_packet)
-        == constants.batch_sensor_gps_packet_expected_packet_length
-    ):
+    len_full = constants.batch_sensor_gps_packet_expected_packet_length
+    if not len(sensor_gps_packet) == len_full:
         raise ValueError("Sensor packet improperly formed, improper length")
+
+    # last two bytes should be \r\n
+    terminating_bytes = constants.batch_sensor_gps_packet_terminating_bytes
+    if not sensor_gps_packet[-2:] == terminating_bytes:
+        raise ValueError("Sensor packet improperly formed, terminating bytes missing")
+
+    sensor_gps_packet = sensor_gps_packet[0:-2]  # remove terminating characters
 
     len_sensor = constants.batch_sensor_packet_length_bytes
     N_sensor = constants.batch_sensor_gps_packet_num_sensor_packets
@@ -153,15 +152,16 @@ def unpack_batch_sensor_gps_file_to_messages_iterable(batch_file_path):
     """
     Read and return one "line" of sensor and gps messages from the batch sensor gps file
     """
-    with open(batch_file_path, "r") as file:
+    packet_length = constants.batch_sensor_gps_packet_expected_packet_length
+    buffer = bytearray(packet_length)
+    packet_vbuff = memoryview(buffer)
+    with open(batch_file_path, "rb") as file:
         while True:
-            sensor_gps_packet = file.read(
-                constants.batch_sensor_gps_packet_expected_packet_length
-            )
-            if not sensor_gps_packet:
+            bytes_read = file.readinto(packet_vbuff)
+            if not bytes_read == packet_length:
                 break
             (
                 sensor_message_list,
                 gps_message,
-            ) = unpack_batch_sensor_gps_packet_to_messages(sensor_gps_packet)
+            ) = unpack_batch_sensor_gps_packet_to_messages(packet_vbuff)
             yield sensor_message_list, gps_message

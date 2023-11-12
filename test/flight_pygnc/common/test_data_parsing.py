@@ -1,3 +1,4 @@
+import os
 import unittest
 
 from .. import context
@@ -113,7 +114,7 @@ class TestDataParsing(unittest.TestCase):
 
     def test_unpack_sensor_gps(self):
         sensor_gps_test_pkt = bytearray(b"")
-        for i in range(constants.batch_packet_num_sensor_packets):
+        for i in range(constants.batch_sensor_gps_packet_num_sensor_packets):
             sensor_gps_test_pkt += self.sensor_test_pkt
         sensor_gps_test_pkt += self.gps_test_pkt
         sensor_gps_test_pkt += bytearray(b"\r\n")
@@ -123,9 +124,29 @@ class TestDataParsing(unittest.TestCase):
         )
 
         self.assertEqual(
-            len(sensor_data_list), constants.batch_packet_num_sensor_packets
+            len(sensor_data_list), constants.batch_sensor_gps_packet_num_sensor_packets
         )
 
         for sensor_data_i in sensor_data_list:
             self._verify_sensor_test_packet(sensor_data_i)
         self._verify_gps_test_packet(gps_data)
+
+    def test_batch_file_read(self):
+        batch_file_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "scenarios",
+            "unittest_scenario",
+            constants.batch_gps_sensor_file_name,
+        )
+
+        batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
+            batch_file_path
+        )
+        packet_count = 0
+        for bd in batch_data:
+            packet_count += 1
+
+        self.assertEqual(packet_count, 5)  # one at 0, 25, 50, 75, 100 seconds

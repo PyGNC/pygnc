@@ -24,6 +24,12 @@ class TestSensorMessage(unittest.TestCase):
         assertNP(sm.gyro_measurement)
         assertNP(sm.sun_sensors)
 
+        self.assertEqual(len(sm.mag_measurement), 3)
+        self.assertEqual(len(sm.gyro_measurement), 3)
+        self.assertEqual(len(sm.sun_sensors), 6)
+
+        self.assertEqual(len(sm.as_tuple), 5)
+
     def test_empty_msgpack(self):
         sm = messages.SensorMessage()
         b = sm.to_msgpack_b()
@@ -79,3 +85,50 @@ class TestSensorMessage(unittest.TestCase):
 
         np.testing.assert_almost_equal(sc_time, sm2.spacecraft_time)
         np.testing.assert_almost_equal(raw_hall, sm2.raw_hall)
+
+
+class TestGPSMessage(unittest.TestCase):
+    def test_empty(self):
+        gm = messages.GPSMessage()
+        self._verify_empty_message(gm)
+
+    def _verify_empty_message(self, gm):
+        assertNaNs = lambda x: self.assertTrue(np.all(np.isnan(x)))
+        assertNP = lambda x: self.assertTrue(isinstance(x, np.ndarray))
+
+        assertNaNs(gm.spacecraft_time)
+        assertNaNs(gm.gps_time_status)
+        assertNaNs(gm.gps_week)
+        assertNaNs(gm.gps_milliseconds)
+        assertNaNs(gm.position_status)
+        assertNaNs(gm.position)
+        assertNaNs(gm.position_sig)
+        assertNaNs(gm.velocity_status)
+        assertNaNs(gm.velocity)
+        assertNaNs(gm.velocity_sig)
+        assertNaNs(gm.v_latency)
+        assertNaNs(gm.differential_age)
+        assertNaNs(gm.solution_age)
+        assertNaNs(gm.sats_tracked)
+        assertNaNs(gm.sats_in_solution)
+
+        assertNP(gm.position)
+        assertNP(gm.position_sig)
+        assertNP(gm.velocity)
+        assertNP(gm.velocity_sig)
+
+        self.assertEqual(len(gm.position), 3)
+        self.assertEqual(len(gm.position_sig), 3)
+        self.assertEqual(len(gm.velocity), 3)
+        self.assertEqual(len(gm.velocity_sig), 3)
+
+        self.assertEqual(len(gm.as_tuple), 15)
+
+    def test_empty_msgpack(self):
+        gm = messages.GPSMessage()
+        b = gm.to_msgpack_b()
+        self.assertIsInstance(b, bytes)
+
+        gm2 = messages.GPSMessage(msgpack_b=b)
+
+        self._verify_empty_message(gm2)

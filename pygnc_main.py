@@ -1,5 +1,5 @@
 """
-pygnc.py
+pygnc_main.py
 
 The file to be started by the pycubed controller.
 The only process that should communicate with the pycubed controller via stdio or tty.

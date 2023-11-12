@@ -23,6 +23,13 @@ def unpack_batch_gps_message(gps_packet):
     return gps_data
 
 
+def opt3001_raw_to_lux(raw):
+    exponent = (raw & 0xF000) >> 12
+    fractional = raw & 0x0FFF
+    lux = (0.01 * fractional) * (2**exponent)
+    return lux
+
+
 def unpack_batch_sensor_message(sensor_packet):
     """
     unpack a single sensor message that is formatted as in a batch data file.
@@ -33,10 +40,7 @@ def unpack_batch_sensor_message(sensor_packet):
     raw_hall = imu_data[3]
     gyro_measurement = np.array(imu_data[4:7]) * constants.gyro_scalar_raw_to_deg_s
     sun_raw = struct.unpack(">HHHHHH", sensor_packet[18:30])
-    sun_lux = [
-        0.01 * (sun_raw_i & -61441) * (2 ** ((sun_raw_i & 61440) >> 12))
-        for sun_raw_i in sun_raw
-    ]
+    sun_lux = [opt3001_raw_to_lux(sun_raw_i) for sun_raw_i in sun_raw]
 
     return (spacecraft_time, mag_measurement, raw_hall, gyro_measurement, sun_lux)
 

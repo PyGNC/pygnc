@@ -14,7 +14,7 @@ class MsgpackMessage:
         return msgpack.packb(self.as_tuple)
 
     def _from_msgpack_b(self, msgpack_b):
-        # requires child class to have implemented self.from_tuple()
+        # requires child class to have implemented self.from_tuple(tup)
         self.from_tuple(msgpack.unpackb(msgpack_b))
 
 

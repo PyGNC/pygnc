@@ -1,7 +1,7 @@
 import time
 
 
-from ..utils import data_parsing
+from ..common import data_parsing
 from ..configuration import orbit_estimator as oe_config
 
 

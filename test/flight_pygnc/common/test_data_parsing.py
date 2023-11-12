@@ -1,8 +1,8 @@
 import unittest
 
 from .. import context
-from pygnc.common import data_parsing
-from pygnc.common import constants
+from pygnc.common import data_parsing  # type: ignore
+from pygnc.common import constants  # type: ignore
 
 
 class TestDataParsing(unittest.TestCase):

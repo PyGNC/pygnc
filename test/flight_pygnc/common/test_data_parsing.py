@@ -17,7 +17,7 @@ class TestDataParsing(unittest.TestCase):
         )
 
     def test_unpack_gps(self):
-        gps_data = data_parsing.unpack_batch_gps_message(self.gps_test_pkt)
+        gps_data = data_parsing.unpack_batch_gps_packet(self.gps_test_pkt)
         self._verify_gps_test_packet(gps_data)
 
     def _verify_gps_test_packet(self, gps_data):
@@ -77,7 +77,7 @@ class TestDataParsing(unittest.TestCase):
         self.assertEqual(sats_in_solution, 8)
 
     def test_unpack_sensors(self):
-        sensor_data = data_parsing.unpack_batch_sensor_message(self.sensor_test_pkt)
+        sensor_data = data_parsing.unpack_batch_sensor_packet(self.sensor_test_pkt)
         self._verify_sensor_test_packet(sensor_data)
 
     def _verify_sensor_test_packet(self, sensor_data):
@@ -118,7 +118,7 @@ class TestDataParsing(unittest.TestCase):
         sensor_gps_test_pkt += self.gps_test_pkt
         sensor_gps_test_pkt += bytearray(b"\r\n")
 
-        sensor_data_list, gps_data = data_parsing.unpack_batch_sensor_gps_message(
+        sensor_data_list, gps_data = data_parsing.unpack_batch_sensor_gps_packet(
             sensor_gps_test_pkt
         )
 

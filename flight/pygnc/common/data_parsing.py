@@ -3,9 +3,9 @@ import numpy as np
 from ..common import constants
 
 
-def unpack_batch_gps_message(gps_packet):
-    """unpack_batch_gps_message
-    Unpack a single gps message that is formatted as in a batch data file.
+def unpack_batch_gps_packet(gps_packet):
+    """unpack_batch_gps_packet
+    Unpack a single gps packet that is formatted as in a batch data file.
     """
 
     spacecraft_time = int.from_bytes(gps_packet[0:4], "big")
@@ -30,9 +30,9 @@ def opt3001_raw_to_lux(raw):
     return lux
 
 
-def unpack_batch_sensor_message(sensor_packet):
+def unpack_batch_sensor_packet(sensor_packet):
     """
-    unpack a single sensor message that is formatted as in a batch data file.
+    unpack a single sensor packet that is formatted as in a batch data file.
     """
     spacecraft_time = int.from_bytes(sensor_packet[0:4], "big")
     imu_data = struct.unpack("<hhhhhhh", sensor_packet[4:18])
@@ -45,7 +45,7 @@ def unpack_batch_sensor_message(sensor_packet):
     return (spacecraft_time, mag_measurement, raw_hall, gyro_measurement, sun_lux)
 
 
-def unpack_batch_sensor_gps_message(sensor_gps_packet):
+def unpack_batch_sensor_gps_packet(sensor_gps_packet):
     # last two bytes should be \r\n
     if not sensor_gps_packet[-2:] == b"\r\n":
         raise ValueError(
@@ -60,8 +60,8 @@ def unpack_batch_sensor_gps_message(sensor_gps_packet):
     sensor_data_list = []
     for i in range(N_sensor):
         sensor_packet_i = sensor_gps_packet[i * len_sensor : (i + 1) * len_sensor]
-        sensor_data_list.append(unpack_batch_sensor_message(sensor_packet_i))
+        sensor_data_list.append(unpack_batch_sensor_packet(sensor_packet_i))
     gps_packet = sensor_gps_packet[N_sensor * len_sensor :]
-    gps_data = unpack_batch_gps_message(gps_packet)
+    gps_data = unpack_batch_gps_packet(gps_packet)
 
     return sensor_data_list, gps_data

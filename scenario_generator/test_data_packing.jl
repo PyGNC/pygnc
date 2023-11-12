@@ -85,7 +85,7 @@ end
     mag_measurement_in = [9.87, 65.43, 3.21]
     gyro_measurement_in = [11.22, 3.33, 0.4433]
     sun_sensors_in = [12.1567, 560, 32000.4, 984.0, 0.001, 99e9]
-    sun_sensors_in_sensor_binned = [12.15, 560.0, 32000.0, 984.0, 0.001, 83865.6]
+    sun_sensors_in_sensor_binned = [12.15, 560.0, 32000.0, 984.0, 0.0, 83865.6]
     msg = pack_batch_sensor_message(
         unix_timestamp_in,
         mag_measurement_in,

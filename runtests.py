@@ -1,9 +1,15 @@
+#!/usr/bin/env python3
 """
 This is equivalent to running `python3 -m unittest` in the repository root directory,
 but this can be run from anywhere.
 
 To run an individual test file, run from this directory level
 `python3 -m unittest test/path/to/test_file.py`
+
+nose2 makes it easy to activate a debugger when tests fail
+`pip install nose2`
+from ./
+`nose2 --debugger`
 """
 
 import os

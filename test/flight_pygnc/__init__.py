@@ -1,1 +1,1 @@
-from .context import pygnc
+from . import context

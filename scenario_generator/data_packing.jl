@@ -131,7 +131,7 @@ exponent_level_lut = [
     (exponent=UInt16(0b1011), lux_max=83865.60, lsb_size=20.48),
 ]
 
-function lux_to_opt3001_reading(lux)
+function lux_to_opt3001_raw(lux)
     @assert lux >= 0
     for level in exponent_level_lut
         if lux <= level.lux_max
@@ -140,22 +140,29 @@ function lux_to_opt3001_reading(lux)
             # get fractional part
             fractional = Int(floor(lux / level.lsb_size)) & 0xFFF
             exponent = level.exponent
-            return pack_opt3001_reading(exponent, fractional)
+            return pack_opt3001_raw(exponent, fractional)
         end
     end
     # lux is saturated
     fractional = 0xFFF
     exponent = exponent_level_lut[end].exponent
-    return pack_opt3001_reading(exponent, fractional)
+    return pack_opt3001_raw(exponent, fractional)
 end
 
-function pack_opt3001_reading(exponent, fractional)
+function pack_opt3001_raw(exponent, fractional)
     #  15     12  11          0
     # [ exponent | fractional  ]
-    reading = (exponent << 12) + (fractional & 0x0FFF)
-    reading &= 0xFFFF # ensure 16 bit
+    raw = (exponent << 12) + (fractional & 0x0FFF)
+    raw &= 0xFFFF # ensure 16 bit
 
-    return reading
+    return raw
+end
+
+function opt3001_raw_to_lux(raw)
+    exponent = (raw & 0xF000) >> 12
+    fractional = raw & 0x0FFF
+    lux = (0.01 * fractional) * (2^exponent)
+    return lux
 end
 
 """ pack_batch_sensor_message()
@@ -199,12 +206,12 @@ function pack_batch_sensor_message(
     )
 
     sun_sensor_bytes = pystruct.pack(">HHHHHH",
-        lux_to_opt3001_reading(sun_sensors[1]),
-        lux_to_opt3001_reading(sun_sensors[2]),
-        lux_to_opt3001_reading(sun_sensors[3]),
-        lux_to_opt3001_reading(sun_sensors[4]),
-        lux_to_opt3001_reading(sun_sensors[5]),
-        lux_to_opt3001_reading(sun_sensors[6])
+        lux_to_opt3001_raw(sun_sensors[1]),
+        lux_to_opt3001_raw(sun_sensors[2]),
+        lux_to_opt3001_raw(sun_sensors[3]),
+        lux_to_opt3001_raw(sun_sensors[4]),
+        lux_to_opt3001_raw(sun_sensors[5]),
+        lux_to_opt3001_raw(sun_sensors[6])
     )
 
     sensor_bytes = Vector{UInt8}(spacecraft_time_bytes * imu_bytes * sun_sensor_bytes)
@@ -222,7 +229,7 @@ function unpack_batch_sensor_message(sensor_packet;
     raw_hall = imu_data[4]
     gyro_measurement = [imu_data[5:7]...] * gyro_scalar
     sun_raw = pystruct.unpack(">HHHHHH", sensor_packet[19:30])
-    sun_lux = [0.01 * (sun_raw_i & -61441) * (2^((sun_raw_i & 61440) >> 12)) for sun_raw_i in sun_raw]
+    sun_lux = [opt3001_raw_to_lux(sun_raw_i) for sun_raw_i in sun_raw]
 
     return (
         spacecraft_time,

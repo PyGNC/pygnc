@@ -61,19 +61,19 @@ include("data_packing.jl")
 end
 
 @testset "lux" begin
-    reading = lux_to_opt3001_reading(6000)
+    reading = lux_to_opt3001_raw(6000)
     @test (reading & 0xF000) == 0x8000 # correct exponent
     @test (reading & 0xFFFF0000) == 0 # 16 bit number
     @test (reading & 0x0FFF) > 0 # positive mantissa
 
     # maximum reading
-    reading = lux_to_opt3001_reading(1e6)
+    reading = lux_to_opt3001_raw(1e6)
     @test ((reading & 0xF000) >> 12) == 0b1011 # maximum exponent
     @test (reading & 0xFFFF0000) == 0 # 16 bit number
     @test (reading & 0x0FFF) == 0xFFF # mantissa is maxxed out
 
     # small reading
-    reading = lux_to_opt3001_reading(0.19)
+    reading = lux_to_opt3001_raw(0.19)
     @test (reading & 0xF000) == 0 # minimum exponent
     @test (reading & 0xFFFF0000) == 0 # 16 bit number
     @test (reading & 0x0FFF) == 19 # mantissa is correct

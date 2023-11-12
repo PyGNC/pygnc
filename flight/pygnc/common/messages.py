@@ -15,7 +15,7 @@ class MsgpackMessage:
 
     def _from_msgpack_b(self, msgpack_b):
         # requires child class to have implemented self.from_tuple(tup)
-        self.from_tuple(msgpack.unpackb(msgpack_b))
+        self._from_tuple(msgpack.unpackb(msgpack_b))
 
 
 class SensorMessage(MsgpackMessage):
@@ -48,7 +48,7 @@ class SensorMessage(MsgpackMessage):
             self._sun_sensors,
         )
 
-    def from_tuple(self, tup):
+    def _from_tuple(self, tup):
         (
             self._spacecraft_time,
             self._mag_measurement,
@@ -81,29 +81,29 @@ class SensorMessage(MsgpackMessage):
 class GPSMessage(MsgpackMessage):
     def __init__(
         self,
-        spacecraft_time,
-        gps_time_status,
-        gps_week,
-        gps_milliseconds,
-        position_status,
-        position_x,
-        position_y,
-        position_z,
-        position_sig_x,
-        position_sig_y,
-        position_sig_z,
-        velocity_status,
-        velocity_x,
-        velocity_y,
-        velocity_z,
-        velocity_sig_x,
-        velocity_sig_y,
-        velocity_sig_z,
-        v_latency,
-        differential_age,
-        solution_age,
-        sats_tracked,
-        sats_in_solution,
+        spacecraft_time=np.nan,
+        gps_time_status=np.nan,
+        gps_week=np.nan,
+        gps_milliseconds=np.nan,
+        position_status=np.nan,
+        position_x=np.nan,
+        position_y=np.nan,
+        position_z=np.nan,
+        position_sig_x=np.nan,
+        position_sig_y=np.nan,
+        position_sig_z=np.nan,
+        velocity_status=np.nan,
+        velocity_x=np.nan,
+        velocity_y=np.nan,
+        velocity_z=np.nan,
+        velocity_sig_x=np.nan,
+        velocity_sig_y=np.nan,
+        velocity_sig_z=np.nan,
+        v_latency=np.nan,
+        differential_age=np.nan,
+        solution_age=np.nan,
+        sats_tracked=np.nan,
+        sats_in_solution=np.nan,
         msgpack_b=None,
     ):
         if msgpack_b is not None:
@@ -146,7 +146,7 @@ class GPSMessage(MsgpackMessage):
             self._sats_in_solution,
         )
 
-    def from_tuple(self, tup):
+    def _from_tuple(self, tup):
         (
             self._spacecraft_time,
             self._gps_time_status,
@@ -187,7 +187,7 @@ class GPSMessage(MsgpackMessage):
 
     @property
     def position(self):
-        return np.array(self.position)
+        return np.array(self._position)
 
     @property
     def position_sig(self):

@@ -22,10 +22,10 @@ class SensorMessage(MsgpackMessage):
     def __init__(
         self,
         spacecraft_time=np.nan,
-        mag_measurement=[np.nan, np.nan, np.nan],
+        mag_measurement=(np.nan, np.nan, np.nan),
         raw_hall=np.nan,
-        gyro_measurement=[np.nan, np.nan, np.nan],
-        sun_sensors=[np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+        gyro_measurement=(np.nan, np.nan, np.nan),
+        sun_sensors=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
         msgpack_b=None,
     ):
         if msgpack_b is not None:
@@ -33,10 +33,10 @@ class SensorMessage(MsgpackMessage):
             super()._from_msgpack_b(msgpack_b)
         else:
             self._spacecraft_time = spacecraft_time
-            self._mag_measurement = mag_measurement
+            self._mag_measurement = tuple(mag_measurement)
             self._raw_hall = raw_hall
-            self._gyro_measurement = gyro_measurement
-            self._sun_sensors = sun_sensors
+            self._gyro_measurement = tuple(gyro_measurement)
+            self._sun_sensors = tuple(sun_sensors)
 
     @property
     def as_tuple(self):

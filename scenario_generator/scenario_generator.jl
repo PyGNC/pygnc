@@ -14,7 +14,7 @@ function epoch_to_unix_time(time)
 end
 
 
-function simulate_scenario(
+function simulate_scenario(;
     batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
@@ -125,7 +125,11 @@ function measurements_to_batch_file(
     measurement_batch_packet = Vector{UInt8}()
     sensor_sample_counter = 0
 
+    if !isdir(scenario_directory_path)
+        mkdir(scenario_directory_path)
+    end
     batch_scenario_file = open(joinpath(scenario_directory_path, "batch_gps_sensor_data.bin"), "w")
+
     try
         for m in measurement_history
             measurement_counter += 1

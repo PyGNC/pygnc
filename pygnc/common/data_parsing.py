@@ -1,0 +1,38 @@
+import struct
+import numpy as np
+from ..common import constants
+
+
+def unpack_batch_gps_message(gps_packet):
+    """unpack_batch_gps_message
+    Unpack a single gps message that is formatted as in a batch data file.
+    """
+
+    spacecraft_time = int.from_bytes(gps_packet[0:4], "big")
+    gps_frame = gps_packet[4:-1]
+    ecef = struct.unpack("<dddfffBdddffffffBB", gps_frame[8:-1])
+    gps_data = (
+        spacecraft_time,  # approx spacecraft time at gps frame (within 0.8s or less)
+        gps_frame[0],  # GPS time sol status
+        int.from_bytes(gps_frame[1:3], "little"),  # GPS week
+        int.from_bytes(gps_frame[3:7], "little"),  # time of week (milliseconds)
+        gps_frame[7],  # pos sol status
+        *ecef,
+    )
+
+    return gps_data
+
+
+def unpack_batch_sensor_message(sensor_packet):
+    spacecraft_time = int.from_bytes(sensor_packet[0:4], "big")
+    imu_data = struct.unpack("<hhhhhhh", sensor_packet[4:18])
+    mag_measurement = np.array(imu_data[0:3]) * constants.mag_scalar_raw_to_uT
+    raw_hall = imu_data[3]
+    gyro_measurement = np.array(imu_data[4:7]) * constants.gyro_scalar_raw_to_deg_s
+    sun_raw = struct.unpack(">HHHHHH", sensor_packet[18:30])
+    sun_lux = [
+        0.01 * (sun_raw_i & -61441) * (2 ^ ((sun_raw_i & 61440) >> 12))
+        for sun_raw_i in sun_raw
+    ]
+
+    return (spacecraft_time, mag_measurement, raw_hall, gyro_measurement, sun_lux)

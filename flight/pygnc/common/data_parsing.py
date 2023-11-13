@@ -151,6 +151,7 @@ def unpack_batch_sensor_gps_packet_to_messages(sensor_gps_packet):
 def unpack_batch_sensor_gps_file_to_messages_iterable(batch_file_path):
     """
     Read and return one "line" of sensor and gps messages from the batch sensor gps file
+    Returns an iterable that can be iterated in a for loop
     """
     packet_length = constants.batch_sensor_gps_packet_expected_packet_length
     buffer = bytearray(packet_length)

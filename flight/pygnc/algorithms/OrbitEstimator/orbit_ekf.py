@@ -1,10 +1,8 @@
 import autograd.numpy as np
+import brahe
 from scipy.linalg import sqrtm
 
 from .ekf_core import EKFCore
-
-R_EARTH = 6.3781363e6  # Radius of the Earth in meters
-OMEGA_EARTH = 7.292115146706979e-5  # angular velocity of the Earth in rad/s
 
 
 def atm_density(alt):
@@ -26,6 +24,12 @@ def process_dynamics(x):
     Input: state vector (x)
     Output: Time derivative of the state vector (x_dot)
     """
+
+    R_EARTH = brahe.constants.R_EARTH  # m, radius of the Earth
+    OMEGA_EARTH = brahe.constants.OMEGA_EARTH  # rad/s, angular velocity of the Earth
+    μ = brahe.constants.GM_EARTH  # m3/s2, gravitational parameter of the Earth
+    J2 = brahe.constants.J2_EARTH  # J2 perturbation constant
+
     # position
     q = np.array(x[0:3])
 
@@ -58,12 +62,6 @@ def process_dynamics(x):
 
     # drag force
     f_drag = -0.5 * cd * (A) * rho_est * np.linalg.norm(v_rel) * v_rel
-
-    # gravitational parameter of the Earth
-    μ = 3.986004418e14  # m3/s2
-
-    # J2 perturbation constant
-    J2 = 1.08264e-3
 
     # Two body acceleration
     a_2bp = (-μ * q) / (np.linalg.norm(q)) ** 3
@@ -107,7 +105,7 @@ class OrbitEKF(EKFCore):
     Defines the EKF for the orbit determination problem
     """
 
-    def __init__(self, x0):
+    def __init__(self):
         def time_dynamics(x, dt):
             """
             Discrete-time dynamics function
@@ -154,9 +152,11 @@ class OrbitEKF(EKFCore):
         # initial square root covariance matrix
         F0 = sqrtm(P0)
 
-        # initial state
-        x0 = np.concatenate([x0, np.zeros(3), 1e-3 * np.ones(3)])
-
         super().__init__(
-            x0, F0, time_dynamics, measurement_function, q_betas, q_eps, R_measure
+            F0, time_dynamics, measurement_function, q_betas, q_eps, R_measure
         )
+
+    def initialize_state(self, state_eci):
+        # initial state
+        x0 = np.concatenate([state_eci, np.zeros(3), 1e-3 * np.ones(3)])
+        super().initialize_state(x0)

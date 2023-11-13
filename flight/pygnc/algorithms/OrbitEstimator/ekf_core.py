@@ -2,7 +2,6 @@ from autograd import jacobian, numpy as np
 from scipy.linalg import sqrtm
 from scipy.linalg import qr
 from scipy.linalg import solve
-import brahe
 
 # The state vector is defined as follows:
 # x[0], x[1], x[2] -> x,y,z position
@@ -13,8 +12,7 @@ import brahe
 
 class EKFCore:
     # constructor
-    def __init__(self, x0, F0, dynamics, measure, betas, epsilons, R) -> None:
-        self.x = x0  # initial state
+    def __init__(self, F0, dynamics, measure, betas, epsilons, R) -> None:
         self.F = F0  # initial square root covariance
         self.f = dynamics  # discrete dynamics function used
         self.g = measure  # measurement function used
@@ -22,6 +20,9 @@ class EKFCore:
         self.betas = betas  # this is the tuning parameters q_beta
         self.epsilons = epsilons  # this is the tuning parameters q epsilon
         self.sqrt_R = sqrtm(R)  # measurement noise
+
+    def initialize_state(self, x0):
+        self.x = x0
 
     def predict(self, h):
         """
@@ -73,12 +74,11 @@ class EKFCore:
 
         return x_predicted, F_predicted
 
-    # mesurement y is from GPS. Ensure it is from timestep k+1
     # g is the measurement function
-    def innovation(self, y, x_predicted, F_predicted, epoch):
+    def innovation(self, y, x_predicted, F_predicted):
         """
         EKF Innovation Step.
-        y is the true GPS measurement
+        y is the true measurement
         x_predicted is the predicted state
         F_predicted is the predicted square root covariance
         epoch is the time associated with the measurement
@@ -87,11 +87,8 @@ class EKFCore:
         # predicted measurement in ECI
         y_predicted, C = self.g(x_predicted)
 
-        # transform the true gps measurement from ECEF to ECI at
-        y_eci = brahe.frames.sECEFtoECI(epoch, y)
-
         # innovation
-        Z = y_eci - y_predicted
+        Z = y - y_predicted
 
         return Z, C
 
@@ -112,7 +109,7 @@ class EKFCore:
 
         return L
 
-    def update(self, y, dt, epoch):
+    def update(self, y, dt):
         """
         EKF update step
         """
@@ -120,7 +117,7 @@ class EKFCore:
         x_predicted, F_predicted = self.predict(dt)
 
         # innovation step
-        Z, C = self.innovation(y, x_predicted, F_predicted, epoch)
+        Z, C = self.innovation(y, x_predicted, F_predicted)
 
         # calculate kalman gain
         L = self.kalman_gain(F_predicted, C)

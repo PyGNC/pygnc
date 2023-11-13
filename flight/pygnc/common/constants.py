@@ -15,5 +15,5 @@ batch_sensor_gps_packet_expected_packet_length = (
     + batch_gps_packet_length_bytes
     + batch_sensor_gps_packet_terminating_bytes_length
 )
+batch_sensor_gps_file_name = "batch_sensor_gps_data.bin"
 
-batch_gps_sensor_file_name = "batch_gps_sensor_data.bin"

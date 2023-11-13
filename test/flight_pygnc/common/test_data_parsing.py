@@ -139,7 +139,7 @@ class TestDataParsing(unittest.TestCase):
             "..",
             "scenarios",
             "unittest_scenario",
-            constants.batch_gps_sensor_file_name,
+            constants.batch_sensor_gps_file_name,
         )
 
         batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(

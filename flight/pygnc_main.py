@@ -10,11 +10,14 @@ import sys
 import time
 
 import pygnc.tasks.orbit_estimator as orbit_estimator_task
+from pygnc.configuration import pygnc as pygnc_config
 
 
 def start_processes():
     processes = dict()
-    orbit_estimator_p = Process(target=orbit_estimator_task.main, args=("~/sense.bin",))
+    orbit_estimator_p = Process(
+        target=orbit_estimator_task.main, args=(pygnc_config.batch_sensor_gps_filepath,)
+    )
     orbit_estimator_p.start()
     processes["orbit_estimator"] = orbit_estimator_p
 

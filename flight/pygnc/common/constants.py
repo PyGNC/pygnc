@@ -17,3 +17,5 @@ batch_sensor_gps_packet_expected_packet_length = (
 )
 batch_sensor_gps_file_name = "batch_sensor_gps_data.bin"
 
+# time
+seconds_in_week = 7 * 24 * 60 * 60

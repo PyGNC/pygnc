@@ -146,7 +146,9 @@ class TestDataParsing(unittest.TestCase):
             batch_file_path
         )
         packet_count = 0
-        for bd in batch_data:
+        for bd_line in batch_data:
+            sensor_message_list, gps_message = bd_line
+            self.assertEqual(len(sensor_message_list), 5)
             packet_count += 1
 
         self.assertEqual(packet_count, 5)  # one at 0, 25, 50, 75, 100 seconds

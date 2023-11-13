@@ -128,7 +128,7 @@ function measurements_to_batch_file(
     if !isdir(scenario_directory_path)
         mkdir(scenario_directory_path)
     end
-    batch_scenario_file = open(joinpath(scenario_directory_path, "batch_gps_sensor_data.bin"), "w")
+    batch_scenario_file = open(joinpath(scenario_directory_path, "batch_sensor_gps_data.bin"), "w")
 
     try
         for m in measurement_history

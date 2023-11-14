@@ -13,6 +13,12 @@ if [ -f $flight_zip ]; then
     echo "Unzipping flight.zip on raspberry pi"
     ssh pi@raspberrypi.local "unzip ~/flight.zip -d ~/"
 
+    read -p "Do you want to delete the local code archive ($flight_zip)? (y/n): " response
+    if [ "$response" = "y" ]; then
+        rm $flight_zip
+    fi
+
+
 else
     echo "$script_dir/flight.zip does not exist"
 fi

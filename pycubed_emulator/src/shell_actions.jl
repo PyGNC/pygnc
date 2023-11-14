@@ -59,6 +59,28 @@ function check_directory(dev, path)
     return response == path
 end
 
+
+function read_loop(dev)
+    println("Read loop. Press CTRL+C to stop.")
+    try
+        while true
+            if bytesavailable(dev) > 0
+                raw_response = read(dev, String)
+                lines = split(raw_response, "\n")
+                response = [clean_line(line) for line in lines]
+                for res_line in response
+                    println(res_line)
+                end
+            end
+        end
+    catch e
+        if ~isa(e, InterruptException)
+            rethrow()
+        end
+    end
+
+end
+
 function transfer_file_to(dev, local_path, dev_path)
 
     println("Transferring $local_path to $dev_path")

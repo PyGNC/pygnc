@@ -35,3 +35,6 @@ Unit tests can be run by running `nose2` or [`runtests.py`](https://github.com/p
 
 ## Other contents
 The repository also contains convenience scripts for packaging the flight code in a zip file and transferring it to a raspberry pi via scp.
+
+* `package_flight_code.sh` zips up the flight code, avoiding `README.md` and `__pycache__` files and adding a file containing git version information
+* `update_raspi.sh` calls `package_flight_code.sh` and transfers the result to a raspberry pi located at `pi@raspberrypi.local`.

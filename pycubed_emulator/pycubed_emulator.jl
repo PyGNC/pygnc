@@ -4,7 +4,6 @@ Pkg.activate(@__DIR__)
 using LinearAlgebra
 using LibSerialPort
 
-include("src/models.jl")
 include("src/shell_actions.jl")
 
 this_tty = readchomp(open(`tty`, "r", stdout)) # this allows us to directly write to the current terminal

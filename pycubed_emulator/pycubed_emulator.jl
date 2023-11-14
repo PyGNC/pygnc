@@ -34,7 +34,12 @@ function pycubed_emulator(;
 
         batch_scenario_path = joinpath(scenario_path, "batch_gps_sensor_data.bin")
         transfer_file_to(dev, batch_scenario_path, output_batch_sensor_data_file)
+        sleep(0.5)
 
+        # println("Starting flight code")
+        # @warn "Need spacecraft_time from scenario"
+        # command_no_response(dev, "python3 pygnc_main.py 600 10000")
+        # read_loop(dev)
 
 
     finally
@@ -42,6 +47,7 @@ function pycubed_emulator(;
     end
 end
 
-pi_tty = "/dev/cu.usbserial-AB7JTG00"
+# pi_tty = "/dev/cu.usbserial-AB7JTG00"
+pi_tty = "/dev/ttyUSB0"
 pycubed_emulator(serial_port=pi_tty)
 # pycubed_emulator(serial_port=this_tty)

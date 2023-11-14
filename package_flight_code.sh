@@ -13,5 +13,7 @@ echo "Zipping $flight_directory into $output_zip"
 
 # Use find to locate all files excluding __pycache__ directories and README.md files
 cd "$flight_directory" || exit 1
+git log --format=format:"%H %ad" --date=iso -1 > pygnc_version.info
 find . -type f -not -path "*/__pycache__/*" ! -name "README.md" -exec zip "$output_zip" {} \;
+rm pygnc_version.info
 cd "$script_dir"

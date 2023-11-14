@@ -24,9 +24,13 @@ function pycubed_emulator(;
         proper_login, response = check_login(dev, username)
         if !proper_login
             @error "Device at $(serial_port) is not properly logged into user $(username), response was $(response)"
+            return
         end
         println("Changing directory to root")
         change_directory(dev, "~")
+
+        res = command_response(dev, "cat ~/pygnc_version.info", all_lines=true)
+        println("pygnc version: $res")
 
         batch_scenario_path = joinpath(scenario_path, "batch_gps_sensor_data.bin")
         transfer_file_to(dev, batch_scenario_path, output_batch_sensor_data_file)

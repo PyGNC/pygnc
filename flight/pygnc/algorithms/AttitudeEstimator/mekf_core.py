@@ -12,6 +12,7 @@ from .mekf_utils import *
 # x[0], x[1], x[2] -> delta attitude
 # x[3], x[4], x[5] -> x,y,z gyro bias
 
+
 class MEKFCore:
     # constructor
     def __init__(self, P0, dynamics, gyro_m, measure, R, Q) -> None:
@@ -50,10 +51,12 @@ class MEKFCore:
         h is the timestep
         """
         # discrete dynamics function of state
-        x_predicted = self.f(self.x, h)
+        x_predicted = self.f(self.x,self.u,h)
 
         # find the jacobian in closed form
-        A = self.get_jacobian(self, h)
+        #A = self.get_jacobian(self, h)
+
+        A = self.get_jacobian(h)
 
         P_predicted = A @ self.P @ A.T + self.Q
 
@@ -66,13 +69,12 @@ class MEKFCore:
         y is the true measurement
         x_predicted is the predicted state
         """
-
         # predicted measurement
-        y_predicted, C = self.g(x_predicted)
+        y_predicted, C = self.g(x_predicted, y)
 
         # innovation
         Z = y - y_predicted
-
+        
         return Z, C
     
     def kalman_gain(self, P_predicted, C):
@@ -96,7 +98,7 @@ class MEKFCore:
         x_predicted, P_predicted = self.predict(dt)
 
         # innovation step
-        Z, C = self.innovation(y, x_predicted, P_predicted)
+        Z, C = self.innovation(y, x_predicted)
 
         # calculate kalman gain
         L_ = self.kalman_gain(P_predicted, C)

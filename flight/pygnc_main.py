@@ -12,14 +12,27 @@ import time
 import pygnc.tasks.orbit_estimator as orbit_estimator_task
 from pygnc.configuration import pygnc as pygnc_config
 
+#added in the attitude estimator task
+import pygnc.tasks.attitude_estimator as attitude_estimator_task
+
 
 def start_processes():
     processes = dict()
-    orbit_estimator_p = Process(
-        target=orbit_estimator_task.main, args=(pygnc_config.batch_sensor_gps_filepath,)
+
+    #comment out the orbit estimator task
+
+    #orbit_estimator_p = Process(
+    #    target=orbit_estimator_task.main, args=(pygnc_config.batch_sensor_gps_filepath,)
+    #)
+    #orbit_estimator_p.start()
+    #processes["orbit_estimator"] = orbit_estimator_p
+
+    #add in the attitude estimator task
+    attitude_estimator_p = Process(
+        target=attitude_estimator_task.main, args=(pygnc_config.batch_sensor_gps_filepath,)
     )
-    orbit_estimator_p.start()
-    processes["orbit_estimator"] = orbit_estimator_p
+    attitude_estimator_p.start()
+    processes["attitude_estimator"] = attitude_estimator_p
 
     return processes
 

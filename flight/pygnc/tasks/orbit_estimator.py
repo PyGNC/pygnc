@@ -23,7 +23,13 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
         # need to initialize ekf state with first measurement
         orbit_ekf.initialize_state(state_measurement_eci)
     else:
+        #this was code before (negative)
         dt = prev_epoch - measurement_epoch
+
+
+        #dt = abs(prev_epoch - measurement_epoch)
+
+        
         orbit_ekf.update(state_measurement_eci, dt)
 
     return measurement_epoch
@@ -44,6 +50,7 @@ def main(batch_gps_sensor_data_filepath):
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
         _, gps_message = bd
+        
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
         packet_count += 1
 

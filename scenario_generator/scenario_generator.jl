@@ -7,6 +7,44 @@ using LinearAlgebra
 include("models.jl")
 include("data_packing.jl")
 
+struct ScenarioConfig
+    batch_length_s::Int # number of seconds of sensor data to provide
+    batch_gps_sample_period_s::Int # batch sample period for gps measurements
+    batch_sensor_sample_period_s::Int # batch sample period for other sensor data
+    batch_ranging_sample_period_s::Int
+    sequential_length_s::Int # number of seconds to run simulation for after batch data generated
+    sequential_gps_sample_period_s::Real
+    sequential_sensor_sample_period_s::Real
+    sequential_ranging_sample_period_s::Real
+    integrator_timestep_s::Real
+    environment_config::SP.EnvironmentConfig # Satellite environment configuration
+
+    function ScenarioConfig(;
+        batch_length_s::Int=1 * 60 * 60,
+        batch_gps_sample_period_s::Int=25,
+        batch_sensor_sample_period_s::Int=5,
+        batch_ranging_sample_period_s::Int=60,
+        sequential_length_s::Int=60,
+        sequential_gps_sample_period_s::Real=1.0,
+        sequential_sensor_sample_period_s::Real=1.0,
+        sequential_ranging_sample_period_s::Real=1.0,
+        integrator_timestep_s::Real=0.1,
+        environment_config::SP.EnvironmentConfig=SP.default_environment_config,
+    )
+        return new(
+            batch_length_s,
+            batch_gps_sample_period_s,
+            batch_sensor_sample_period_s,
+            batch_ranging_sample_period_s,
+            sequential_length_s,
+            sequential_gps_sample_period_s,
+            sequential_sensor_sample_period_s,
+            sequential_ranging_sample_period_s,
+            integrator_timestep_s,
+            environment_config,)
+    end
+end
+
 
 function epoch_to_unix_time(time)
     unix_start = SD.Epoch("1970-01-01")
@@ -15,17 +53,10 @@ end
 
 
 function simulate_scenario(;
-    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
-    batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
-    batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
-    sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
-    sequential_gps_sample_period_s::Real=1.0,
-    sequential_sensor_sample_period_s::Real=1.0,
-    integrator_timestep_s::Real=0.1,
+    scenario_config::ScenarioConfig=ScenarioConfig(),
     initial_osc_state::Vector{<:Real}=[550e3 + SD.R_EARTH, 0.0, deg2rad(98.7), deg2rad(-0.1), 0.0, deg2rad(45)], # initial state of the satellite in osculating orbital elements
     initial_attitude::Vector{<:Real}=[1.0, 0.0, 0.0, 0.0], # initial attitude of the satellite, body to inertial quaternion
     initial_angular_velocity::Vector{<:Real}=deg2rad(1) * [1.0, 0.0, 0.0], # initial angular velocity of the satellite in body frame
-    environment_config::SP.EnvironmentConfig=SP.default_environment_config, # Satellite environment configuration
     satellite_model::SP.Model=py4_model,
     sensor_model::SatelliteSensors=py4_sensor_model_full
 )
@@ -76,13 +107,19 @@ function simulate_scenario(;
             mag_measurement=mag_measurement,
             sun_sensors=sun_sensors,
             gps_position=gps_position,
-            gps_velocity=gps_velocity
+            gps_velocity=gps_velocity,
+            range_true_position=state_ECEF[1:3],
         )
     end
 
     measurement_history = []
 
-    measurement_dt = min(batch_gps_sample_period_s, batch_sensor_sample_period_s, sequential_gps_sample_period_s, sequential_sensor_sample_period_s)
+    measurement_dt = min(
+        scenario_config.batch_gps_sample_period_s,
+        scenario_config.batch_sensor_sample_period_s,
+        scenario_config.sequential_gps_sample_period_s,
+        scenario_config.sequential_sensor_sample_period_s)
+
     last_measurement = 0
     function callback(measure)
         if measure.timestamp_s - last_measurement >= measurement_dt
@@ -92,16 +129,16 @@ function simulate_scenario(;
         return zero(SP.Control)
     end
 
-    simulation_length_s = batch_length_s + sequential_length_s
+    simulation_length_s = scenario_config.batch_length_s + scenario_config.sequential_length_s
 
     x0 = SP.state_from_osc(initial_osc_state, initial_attitude, initial_angular_velocity)
     env = copy(SP.default_environment)
-    env.config = environment_config
+    env.config = scenario_config.environment_config
     (state_hist, time) = SP.simulate(
         callback,
-        max_iterations=Int(floor(simulation_length_s / integrator_timestep_s)),
+        max_iterations=Int(floor(simulation_length_s / scenario_config.integrator_timestep_s)),
         measure=measure,
-        dt=integrator_timestep_s,
+        dt=scenario_config.integrator_timestep_s,
         initial_condition=x0,
         model=satellite_model,
         environment=env)
@@ -172,35 +209,21 @@ end
 function measurements_to_sequential_file()
 end
 
-function generate_scenario(
+function generate_single_scenario(
     scenario_directory_path::AbstractString;
-    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
-    batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
-    batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
-    sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
-    sequential_gps_sample_period_s::Real=1.0,
-    sequential_sensor_sample_period_s::Real=1.0,
-    integrator_timestep_s::Real=0.1,
+    scenario_config::ScenarioConfig=ScenarioConfig(),
     initial_osc_state::Vector{<:Real}=[550e3 + SD.R_EARTH, 0.0, deg2rad(98.7), deg2rad(-0.1), 0.0, deg2rad(45)], # initial state of the satellite in osculating orbital elements
     initial_attitude::Vector{<:Real}=[1.0, 0.0, 0.0, 0.0], # initial attitude of the satellite, body to inertial quaternion
     initial_angular_velocity::Vector{<:Real}=deg2rad(1) * [1.0, 0.0, 0.0], # initial angular velocity of the satellite in body frame
-    environment_config::SP.EnvironmentConfig=SP.default_environment_config, # Satellite environment configuration
     satellite_model::SP.Model=py4_model,
     sensor_model::SatelliteSensors=py4_sensor_model_full
 )
 
     state_hist, time, measurement_history = simulate_scenario(
-        batch_length_s,
-        batch_gps_sample_period_s,
-        batch_sensor_sample_period_s,
-        sequential_length_s,
-        sequential_gps_sample_period_s,
-        sequential_sensor_sample_period_s,
-        integrator_timestep_s,
+        scenario_config,
         initial_osc_state,
         initial_attitude,
         initial_angular_velocity,
-        environment_config,
         satellite_model,
         sensor_model,
     )
@@ -223,3 +246,4 @@ measurements_to_batch_file(
     5, # batch sample period for other sensor data
     joinpath("..", "scenarios", "default_scenario"),
 )
+

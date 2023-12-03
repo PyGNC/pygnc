@@ -134,10 +134,29 @@ function Base.copy(m::SunSensorModel)
     )
 end
 
+struct RangeSensorModel
+    standard_deviation::Real
+    function RangeSensorModel(;
+        standard_deviation::Real=2.0,
+    )
+        return new(
+            standard_deviation
+        )
+    end
+end
+
+function Base.copy(m::RangeSensorModel)
+    return RangeSensorModel(
+        standard_deviation=standard_deviation
+    )
+end
+
+
 struct SatelliteSensors
     imu_model::IMUModel
     gps_model::GPSModel
     sun_sensor_model::SunSensorModel
+    range_sensor_model::RangeSensorModel
 end
 
 function Base.copy(s::SatelliteSensors)
@@ -145,6 +164,7 @@ function Base.copy(s::SatelliteSensors)
         copy(s.imu_model),
         copy(s.gps_model),
         copy(s.sun_sensor_model),
+        copy(s.range_sensor_model),
     )
 end
 
@@ -167,4 +187,7 @@ py4_sensor_model_full = SatelliteSensors(
         earth_albedo_lux=0.4 * (1361 * 98), # approximate, based on SME table 22-11, pg 688
         dark_condition_lux=0.0
     ),
+    RangeSensorModel(;
+        standard_deviation=2.0
+    )
 )

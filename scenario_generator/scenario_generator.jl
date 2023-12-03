@@ -1,3 +1,5 @@
+using Pkg
+Pkg.activate(@__DIR__)
 import SatellitePlayground
 SP = SatellitePlayground
 import SatelliteDynamics
@@ -112,7 +114,7 @@ function simulate_scenario(;
         )
     end
 
-    measurement_history = []
+    measurement_history = Vector{NamedTuple}()
 
     measurement_dt = min(
         scenario_config.batch_gps_sample_period_s,
@@ -147,11 +149,12 @@ function simulate_scenario(;
 end
 
 function measurements_to_batch_file(
-    measurement_history,
+    measurement_history::Vector{<:NamedTuple},
     batch_length_s::Int, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int, # batch sample period for other sensor data
-    scenario_directory_path::AbstractString,
+    scenario_directory_path::AbstractString;
+    satellite_name::AbstractString="",
 )
     start_time = measurement_history[1].timestamp_s
     sensor_next_timestep = start_time
@@ -165,7 +168,7 @@ function measurements_to_batch_file(
     if !isdir(scenario_directory_path)
         mkdir(scenario_directory_path)
     end
-    batch_scenario_file = open(joinpath(scenario_directory_path, "batch_sensor_gps_data.bin"), "w")
+    batch_scenario_file = open(joinpath(scenario_directory_path, "batch_sensor_gps_data$(satellite_name).bin"), "w")
 
     try
         for m in measurement_history
@@ -209,6 +212,50 @@ end
 function measurements_to_sequential_file()
 end
 
+function measurements_to_formation_batch_file(
+    measurement_histories::Vector{<:Vector{<:NamedTuple}},
+    batch_length_s::Int, # number of seconds of sensor data to provide
+    batch_ranging_sample_period_s::Int, # batch sample period for range measurements
+    sensor_models::Vector{SatelliteSensors},
+    scenario_directory_path::AbstractString,
+)
+
+    if !isdir(scenario_directory_path)
+        mkdir(scenario_directory_path)
+    end
+    for requester_idx in eachindex(measurement_histories)
+        range_batch_scenario_file = open(joinpath(scenario_directory_path, "batch_range_data_$(requester_idx).csv"), "w")
+        write(range_batch_scenario_file, "range_counter, receiver_id, requester_position[1], requester_position[2], requester_position[3], receiver_position[1], receiver_position[2], receiver_position[3], range, true_range \n")
+        requester_measurement_history = measurement_histories[requester_idx]
+        measurement_counter = 0
+        range_next_timestep = requester_measurement_history[1].timestamp_s
+        end_time = batch_length_s + requester_measurement_history[1].timestamp_s
+        range_counter = 0
+        requester_model = sensor_models[requester_idx].range_sensor_model
+        for m in requester_measurement_history
+            measurement_counter += 1
+            if m.timestamp_s > end_time
+                break
+            end
+            if m.timestamp_s >= range_next_timestep
+                for receiver_idx in eachindex(measurement_histories)
+                    if requester_idx == receiver_idx
+                        continue
+                    end
+                    # compute measurements and save to batch file
+                    m_rx = measurement_histories[receiver_idx][measurement_counter]
+                    true_range = norm(m_rx.range_true_position .- m.range_true_position)
+                    range = true_range .+ randn() * requester_model.standard_deviation
+                    write(range_batch_scenario_file, "$range_counter, $receiver_idx, $(m.range_true_position[1]), $(m.range_true_position[2]), $(m.range_true_position[3]), $(m_rx.range_true_position[1]), $(m_rx.range_true_position[2]), $(m_rx.range_true_position[3]), $(range), $(true_range) \n")
+                end
+                range_counter += 1
+                range_next_timestep += batch_ranging_sample_period_s
+            end
+        end
+        close(range_batch_scenario_file)
+    end
+end
+
 function generate_single_scenario(
     scenario_directory_path::AbstractString;
     scenario_config::ScenarioConfig=ScenarioConfig(),
@@ -216,10 +263,11 @@ function generate_single_scenario(
     initial_attitude::Vector{<:Real}=[1.0, 0.0, 0.0, 0.0], # initial attitude of the satellite, body to inertial quaternion
     initial_angular_velocity::Vector{<:Real}=deg2rad(1) * [1.0, 0.0, 0.0], # initial angular velocity of the satellite in body frame
     satellite_model::SP.Model=py4_model,
-    sensor_model::SatelliteSensors=py4_sensor_model_full
+    sensor_model::SatelliteSensors=py4_sensor_model_full,
+    satellite_name::AbstractString=""
 )
 
-    state_hist, time, measurement_history = simulate_scenario(
+    state_hist, time, measurement_history = simulate_scenario(;
         scenario_config,
         initial_osc_state,
         initial_attitude,
@@ -230,20 +278,95 @@ function generate_single_scenario(
 
     last_batch_measurement_index = measurements_to_batch_file(
         measurement_history,
-        batch_length_s,
-        batch_gps_sample_period_s,
-        batch_sensor_sample_period_s,
-        scenario_directory_path,
+        scenario_config.batch_length_s,
+        scenario_config.batch_gps_sample_period_s,
+        scenario_config.batch_sensor_sample_period_s,
+        scenario_directory_path;
+        satellite_name=satellite_name,
     )
 
+    return state_hist, time, measurement_history
 end
 
-state_hist, time_hist, measurement_history = simulate_scenario()
-measurements_to_batch_file(
-    measurement_history,
-    1 * 60 * 60, # number of seconds of sensor data to provide
-    25, # batch sample period for gps measurements
-    5, # batch sample period for other sensor data
-    joinpath("..", "scenarios", "default_scenario"),
+function generate_formation_scenario(
+    scenario_directory_path::AbstractString;
+    scenario_config::ScenarioConfig=ScenarioConfig(),
+    initial_osc_states::Vector{<:Vector{<:Real}}=[[550e3 + SD.R_EARTH, 0.0, deg2rad(98.7), deg2rad(-0.1), 0.0, deg2rad(45)]], # initial state of the satellite in osculating orbital elements
+    initial_attitudes::Vector{<:Vector{<:Real}}=[[1.0, 0.0, 0.0, 0.0]], # initial attitude of the satellite, body to inertial quaternion
+    initial_angular_velocities::Vector{<:Vector{<:Real}}=[deg2rad(1) * [1.0, 0.0, 0.0]], # initial angular velocity of the satellite in body frame
+    satellite_models::Vector{SP.Model}=[py4_model],
+    sensor_models::Vector{SatelliteSensors}=[py4_sensor_model_full]
 )
+    measurement_histories = Vector{Vector{NamedTuple}}()
+    for satellite_idx in eachindex(initial_osc_states)
+        initial_osc_state = initial_osc_states[satellite_idx]
+        initial_attitude = initial_attitudes[satellite_idx]
+        initial_angular_velocity = initial_angular_velocities[satellite_idx]
+        satellite_model = satellite_models[satellite_idx]
+        sensor_model = sensor_models[satellite_idx]
 
+        _, _, measurement_history = generate_single_scenario(
+            scenario_directory_path;
+            scenario_config,
+            initial_osc_state,
+            initial_attitude,
+            initial_angular_velocity,
+            satellite_model,
+            sensor_model,
+            satellite_name="_$satellite_idx",
+        )
+        push!(measurement_histories, measurement_history)
+    end
+
+    measurements_to_formation_batch_file(
+        measurement_histories,
+        scenario_config.batch_length_s,
+        scenario_config.batch_ranging_sample_period_s,
+        sensor_models,
+        scenario_directory_path,
+    )
+end
+
+function deployment_initial_conditions(
+    num_sats::Int,
+    osc_state::Vector{<:Real}=[550e3 + SD.R_EARTH, 0.0, deg2rad(98.7), deg2rad(-0.1), 0.0, deg2rad(45)],
+    attitude::Vector{<:Real}=[1.0, 0.0, 0.0, 0.0],
+    angular_velocity::Vector{<:Real}=deg2rad(1) * [1.0, 0.0, 0.0],
+    deployment_velocity::Vector{<:Real}=[1.0, 0.0, 0.0],
+    position_std::Real=1.0,
+    velocity_std::Real=0.1,
+    attitude_std::Real=0.1,
+    angular_velocity_std::Real=0.01)
+
+    osc_states = Vector{Vector{<:Real}}()
+    attitudes = Vector{Vector{<:Real}}()
+    angular_velocities = Vector{Vector{<:Real}}()
+
+    eci_state = SD.sOSCtoCART(osc_state)
+    for i = 1:num_sats
+        Δp = randn(3) .* position_std
+        Δv = deployment_velocity + velocity_std .* randn(3)
+        push!(osc_states, SD.sCARTtoOSC(eci_state .+ [Δp; Δv]))
+        push!(attitudes, SP.L(SP.H * randn(3) .* attitude_std) * attitude)
+        push!(angular_velocities, angular_velocity .+ randn(3) .* angular_velocity_std)
+    end
+    return osc_states, attitudes, angular_velocities
+end
+
+# state_hist, time_hist, measurement_history = simulate_scenario()
+# measurements_to_batch_file(
+#     measurement_history,
+#     1 * 60 * 60, # number of seconds of sensor data to provide
+#     25, # batch sample period for gps measurements
+#     5, # batch sample period for other sensor data
+#     joinpath("..", "scenarios", "default_scenario"),
+# )
+
+initial_osc_states, initial_attitudes, initial_angular_velocities = deployment_initial_conditions(4)
+generate_formation_scenario(joinpath("..", "scenarios", "default_formation_scenario"),
+    initial_osc_states=initial_osc_states,
+    initial_attitudes=initial_attitudes,
+    initial_angular_velocities=initial_angular_velocities,
+    satellite_models=[py4_model for i = 1:4],
+    sensor_models=[py4_sensor_model_full for i = 1:4]
+)

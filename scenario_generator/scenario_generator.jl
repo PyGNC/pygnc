@@ -225,7 +225,7 @@ function measurements_to_formation_batch_file(
     end
     for requester_idx in eachindex(measurement_histories)
         range_batch_scenario_file = open(joinpath(scenario_directory_path, "batch_range_data_$(requester_idx).csv"), "w")
-        write(range_batch_scenario_file, "range_counter, receiver_id, requester_position[1], requester_position[2], requester_position[3], receiver_position[1], receiver_position[2], receiver_position[3], range, true_range \n")
+        write(range_batch_scenario_file, "range_counter, time, receiver_id, requester_position[1], requester_position[2], requester_position[3], receiver_position[1], receiver_position[2], receiver_position[3], range, true_range\n")
         requester_measurement_history = measurement_histories[requester_idx]
         measurement_counter = 0
         range_next_timestep = requester_measurement_history[1].timestamp_s
@@ -246,7 +246,7 @@ function measurements_to_formation_batch_file(
                     m_rx = measurement_histories[receiver_idx][measurement_counter]
                     true_range = norm(m_rx.range_true_position .- m.range_true_position)
                     range = true_range .+ randn() * requester_model.standard_deviation
-                    write(range_batch_scenario_file, "$range_counter, $receiver_idx, $(m.range_true_position[1]), $(m.range_true_position[2]), $(m.range_true_position[3]), $(m_rx.range_true_position[1]), $(m_rx.range_true_position[2]), $(m_rx.range_true_position[3]), $(range), $(true_range) \n")
+                    write(range_batch_scenario_file, "$range_counter, $(m.timestamp_s), $receiver_idx, $(m.range_true_position[1]), $(m.range_true_position[2]), $(m.range_true_position[3]), $(m_rx.range_true_position[1]), $(m_rx.range_true_position[2]), $(m_rx.range_true_position[3]), $(range), $(true_range)\n")
                 end
                 range_counter += 1
                 range_next_timestep += batch_ranging_sample_period_s

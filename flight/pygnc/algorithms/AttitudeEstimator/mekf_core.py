@@ -1,16 +1,17 @@
 #from autograd import jacobian, numpy as np
-
 import autograd.numpy as np
-#from scipy.linalg import sqrtm (TODO: implement the square root version of the MEKF to see if it improves the results)
+#from scipy.linalg import sqrtm 
 #from scipy.linalg import qr
 from scipy.linalg import solve
+#(TODO: implement the square root version of the MEKF to see if it improves the results?)
 
 #import a set of utils for mekf
 from .mekf_utils import *
 
 # The state vector is defined as follows:
-# x[0], x[1], x[2] -> delta attitude
-# x[3], x[4], x[5] -> x,y,z gyro bias
+# x[0], x[1], x[2], x[3] -> quaternion
+# x[4], x[5], x[6] -> x,y,z gyro bias
+# x[7], x[8], x[9] -> x,y,z magnetometer bias
 
 
 class MEKFCore:
@@ -30,18 +31,33 @@ class MEKFCore:
 
         qk = self.x[0:4]
         qk1 = self.f(self.x, self.u, h)
-        bk = self.x[4:]
+        bk = self.x[4:7]
+        mb = self.x[7:10]
         uk = self.u
         theta = np.linalg.norm(uk-bk)*h
         r = (uk-bk)/np.linalg.norm(uk-bk)
         deltaq = np.hstack(([np.cos(theta/2)], r*np.sin(theta/2)))
 
+        #jacobian for just the quaternion and gyro bias
+        # Ak11 = H.T@L(qk1[0:4]).T@L(qk[0:4])@R(deltaq)@H
+        # Ak12 = -0.5*h*np.identity(3)
+        # Ak21 = np.zeros((3,3))
+        # Ak22 = np.identity(3)
+
+        # Ak = np.block([[Ak11, Ak12],[Ak21, Ak22]])
+
+        #jacobian for the quaternion, gyro bias, and magnetometer bias
         Ak11 = H.T@L(qk1[0:4]).T@L(qk[0:4])@R(deltaq)@H
         Ak12 = -0.5*h*np.identity(3)
+        Ak13 = np.zeros((3,3))
         Ak21 = np.zeros((3,3))
         Ak22 = np.identity(3)
+        Ak23 = np.zeros((3,3))
+        Ak31 = np.zeros((3,3))
+        Ak32 = np.zeros((3,3))
+        Ak33 = np.identity(3)
 
-        Ak = np.block([[Ak11, Ak12],[Ak21, Ak22]])
+        Ak = np.block([[Ak11, Ak12, Ak13],[Ak21, Ak22, Ak23],[Ak31, Ak32, Ak33]])
 
         return Ak
 
@@ -89,7 +105,6 @@ class MEKFCore:
 
         return L_
 
-
     def update(self, y, dt):
         """
         MEKF update step
@@ -111,11 +126,14 @@ class MEKFCore:
         #normalize
         dq = dq/np.linalg.norm(dq)
 
-        #update the quaternion and gyro bias
+        #update the quaternion 
         self.x[0:4] = L(x_predicted[0:4])@dq
+        
+        #update the gyro bias
+        self.x[4:7] = x_predicted[4:7] + delta[3:6]
 
-        self.x[4:] = x_predicted[4:] + delta[3:]
+        #update the magnetometer bias
+        self.x[7:] = x_predicted[7:] + delta[6:]
 
         #update the covariance
-        self.P = (np.identity(6) - L_@C)@P_predicted@(np.identity(6) - L_@C).T + L_@self.R@L_.T
-
+        self.P = (np.identity(9) - L_@C)@P_predicted@(np.identity(9) - L_@C).T + L_@self.R@L_.T

@@ -1,10 +1,11 @@
 #attitude estimator task 
-
-#TODO: Fill in this file with the appropriate measurements from the .bin files
 #TODO: FIX the tuning
 import brahe
 import numpy as np
 import time
+
+#plotting 
+import matplotlib.pyplot as plt
 
 from ..common import data_parsing, transformations
 from ..configuration import orbit_estimator as oe_config
@@ -51,13 +52,18 @@ def update_orbit_mekf(orbit_mekf, sensor_message, prev_epoch=None):
 
     sun_measurement_normalized = sun_measurements/ total_lux
 
+    #these sun measurements are normalized
+    #print("sun measurements: ", sun_measurements)
+
     spacecraft_time = sensor_message.spacecraft_time
 
     #normalized in the function
     sun_vector = get_sun_vector(sun_measurement_normalized)
 
+    #print("this is sun vector: ", sun_vector)
+
     #normalize the magnetometer measurement
-    mag_measurements = mag_measurements/np.linalg.norm(mag_measurements)
+    #mag_measurements = mag_measurements/np.linalg.norm(mag_measurements)
 
     #print("mag measurements: ", mag_measurements)
     #print("sun vector measurements: ", sun_vector)
@@ -82,9 +88,13 @@ def update_orbit_mekf(orbit_mekf, sensor_message, prev_epoch=None):
     #return measurement_epoch
     return spacecraft_time
 
+#the filter is initialized with the first measurement and then updated
 
 def main(batch_gps_sensor_data_filepath):
     print("Attitude Estimator Task")
+
+    #save all the estimates
+    all_estimates = np.zeros((10, 144*5))
 
     # instantiate orbit estimator
     orbit_mekf = OrbitMEKF()
@@ -93,23 +103,102 @@ def main(batch_gps_sensor_data_filepath):
     batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
         batch_gps_sensor_data_filepath
     )
+
     packet_count = 0
     prev_epoch = None
+
+    count = 0
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
 
-        #this is a list of sensor measurements. The amount of sensor measurments in one update of the GPS
+        #this is a list of sensor measurements. The amount of sensor measurments in one update of the GPS is 5
+        #Ensure that you pass in the next measurement
         sensor_msg, _ = bd
 
-        for i in range(len(sensor_msg)):
-            sensor_msgs = sensor_msg[i]
+        for i in range(len(sensor_msg)-1):
+            sensor_msgs = sensor_msg[i+1]
             prev_epoch = update_orbit_mekf(orbit_mekf, sensor_msgs, prev_epoch)
+
+            #save the state estimate
+            all_estimates[:,count] = orbit_mekf.x
+            
+            count += 1
+            print("state estimate:")
+            print(f"\t{orbit_mekf.x}")
+            print(f"std dev:")
+            print(f"\t{np.diag(orbit_mekf.P)}")
+
+
 
         packet_count += 1
 
+    
     print("Batch attitude estimation completed")
+
+    #import the ground truth states txt file
+    ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history.txt', delimiter=',')
+
+    #print size of ground truth states
+    print("ground truth states shape: ", ground_truth_states.shape)
+
+    #The size of attitute estimates is 10x720
+    #There are 36600 measurements in the total ground truth states. The dt of the ground truth simulation 
+    #is 0.1, so there is about 1 hour of data. 
 
     print("Final state estimate:")
     print(f"\t{orbit_mekf.x}")
     print(f"Final std dev:")
     print(f"\t{np.diag(orbit_mekf.P)}")
+
+    print(all_estimates.shape)
+
+    #plot the quaternion estimates as subplots
+    fig, axs = plt.subplots(4)
+    fig.suptitle('Quaternion Estimates')
+    axs[0].plot(all_estimates[0,:])
+    #axs[0].plot(ground_truth_states[:,6])
+    axs[0].set_title('q1')
+    axs[1].plot(all_estimates[1,:])
+    #axs[1].plot(ground_truth_states[:,7])
+    axs[1].set_title('q2')
+    axs[2].plot(all_estimates[2,:])
+    #axs[2].plot(ground_truth_states[:,8])
+    axs[2].set_title('q3')
+    axs[3].plot(all_estimates[3,:])
+    #axs[3].plot(ground_truth_states[:,9])
+    axs[3].set_title('q4')
+
+    #Get the ground truth for the gyro bias of that scenerio
+    #plot the gyro bias estimates as subplots
+    fig2, axs = plt.subplots(3)
+    fig2.suptitle('Gyro Bias Estimates')
+    axs[0].plot(all_estimates[4,:])
+    axs[0].set_title('x bias')
+    axs[1].plot(all_estimates[5,:])
+    axs[1].set_title('y bias')
+    axs[2].plot(all_estimates[6,:])
+    axs[2].set_title('z bias')
+
+    #Get the ground truth for the gyro bias of that scenerio
+    #plot the magnetometer bias estimates as subplots
+    fig3, axs = plt.subplots(3)
+    fig3.suptitle('Magnetometer Bias Estimates')
+    axs[0].plot(all_estimates[7,:])
+    axs[0].set_title('x bias')
+    axs[1].plot(all_estimates[8,:])
+    axs[1].set_title('y bias')
+    axs[2].plot(all_estimates[9,:])
+    axs[2].set_title('z bias')
+
+    #show the plot
+    plt.show()
+
+    #save the plot as a png
+    fig.savefig('state_estimates.png')
+    fig2.savefig('gyro_bias_estimates.png')
+    fig3.savefig('magnetometer_bias_estimates.png')
+
+
+    
+
+

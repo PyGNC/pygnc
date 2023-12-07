@@ -4,6 +4,10 @@ import SatelliteDynamics
 SD = SatelliteDynamics
 using LinearAlgebra
 
+#to save files
+using DelimitedFiles
+
+
 include("models.jl")
 include("data_packing.jl")
 
@@ -61,8 +65,9 @@ function simulate_scenario(;
         sun_sensors = [sun_sensors_positive_faces; sun_sensors_negative_faces]
 
         mag_T = R_IMU_body * env.b
+        #ut is microtesla. 
+        #example: 1e-3 m = 1 mm. here we have 1e-6 T = 1 uT
         mag_measurement = 1e6 * mag_T .+ mag_std_dev_matrix_uT * randn(3) .+ mag_bias_uT
-
         angular_veloctity_deg_s = R_IMU_body * rad2deg.(state.angular_velocity)
         gyro_measurement = angular_veloctity_deg_s .+ gyro_std_dev_matrix_deg_s * randn(3) .+ gyro_bias_deg_s
 
@@ -216,10 +221,19 @@ function generate_scenario(
 end
 
 state_hist, time_hist, measurement_history = simulate_scenario()
+
+#save the state history using DelimitedFiles
+writedlm("state_history.txt", state_hist, ',')
+writedlm("time_hist.txt", time_hist, ',')
+writedlm("measurement_hist.txt", measurement_history, ',')
+
+
+
 measurements_to_batch_file(
     measurement_history,
     1 * 60 * 60, # number of seconds of sensor data to provide
     25, # batch sample period for gps measurements
     5, # batch sample period for other sensor data
-    joinpath("..", "scenarios", "default_scenario"),
+    #joinpath("..", "scenarios", "default_scenario"),
+    joinpath("..", "scenarios", "new_default_scenario"),
 )

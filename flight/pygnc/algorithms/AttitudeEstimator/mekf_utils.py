@@ -21,6 +21,7 @@ def L(q):
     return L
 
 #Right multiply quaternion matrix
+#R_ to not overload with the measurement noise R
 def R(q): 
 
     #scalar part of quat

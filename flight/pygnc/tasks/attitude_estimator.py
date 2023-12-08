@@ -115,8 +115,8 @@ def main(batch_gps_sensor_data_filepath):
         #Ensure that you pass in the next measurement
         sensor_msg, _ = bd
 
-        for i in range(len(sensor_msg)-1):
-            sensor_msgs = sensor_msg[i+1]
+        for i in range(len(sensor_msg)):
+            sensor_msgs = sensor_msg[i]
             prev_epoch = update_orbit_mekf(orbit_mekf, sensor_msgs, prev_epoch)
 
             #save the state estimate
@@ -127,8 +127,6 @@ def main(batch_gps_sensor_data_filepath):
             print(f"\t{orbit_mekf.x}")
             print(f"std dev:")
             print(f"\t{np.diag(orbit_mekf.P)}")
-
-
 
         packet_count += 1
 
@@ -150,8 +148,7 @@ def main(batch_gps_sensor_data_filepath):
     print(f"Final std dev:")
     print(f"\t{np.diag(orbit_mekf.P)}")
 
-    print(all_estimates.shape)
-
+    #Plotting the code for testing 
     #plot the quaternion estimates as subplots
     fig, axs = plt.subplots(4)
     fig.suptitle('Quaternion Estimates')
@@ -190,6 +187,7 @@ def main(batch_gps_sensor_data_filepath):
     axs[2].plot(all_estimates[9,:])
     axs[2].set_title('z bias')
 
+
     #show the plot
     plt.show()
 
@@ -197,8 +195,3 @@ def main(batch_gps_sensor_data_filepath):
     fig.savefig('state_estimates.png')
     fig2.savefig('gyro_bias_estimates.png')
     fig3.savefig('magnetometer_bias_estimates.png')
-
-
-    
-
-

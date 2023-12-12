@@ -15,7 +15,7 @@ class MsgpackMessage:
 
     def _from_msgpack_b(self, msgpack_b):
         # requires child class to have implemented self._from_tuple(tup)
-        self._from_tuple(msgpack.unpackb(msgpack_b))
+        return self._from_tuple(msgpack.unpackb(msgpack_b))
 
 
 class SensorMessage(MsgpackMessage):
@@ -56,6 +56,7 @@ class SensorMessage(MsgpackMessage):
             self._gyro_measurement,
             self._sun_sensors,
         ) = tup
+        return self
 
     @property
     def spacecraft_time(self):
@@ -164,6 +165,7 @@ class GPSMessage(MsgpackMessage):
             self._sats_tracked,
             self._sats_in_solution,
         ) = tup
+        return self
 
     @property
     def spacecraft_time(self):
@@ -224,3 +226,74 @@ class GPSMessage(MsgpackMessage):
     @property
     def sats_in_solution(self):
         return self._sats_in_solution
+
+
+class OrbitEstimateMessage(MsgpackMessage):
+    def __init__(
+        self,
+        spacecraft_time=np.nan,
+        state_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        disturbance_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        state_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        disturbance_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        sensor_message: SensorMessage = SensorMessage(),
+        msgpack_b=None,
+    ):
+        super().__init__()
+        if msgpack_b is not None:
+            # initialize from msgpack data and ignore other entries
+            super()._from_msgpack_b(msgpack_b)
+        else:
+            self._spacecraft_time = spacecraft_time
+            self._state_estimate = tuple(state_estimate)
+            self._disturbance_estimate = tuple(disturbance_estimate)
+            self._state_variance = tuple(state_variance)
+            self._disturbance_variance = tuple(disturbance_variance)
+            self._sensor_message = sensor_message
+
+    @property
+    def as_tuple(self):
+        return (
+            self._spacecraft_time,
+            self._state_estimate,
+            self._disturbance_estimate,
+            self._state_variance,
+            self._disturbance_variance,
+            self._sensor_message.as_tuple,
+        )
+
+    def _from_tuple(self, tup):
+        (
+            self._spacecraft_time,
+            self._state_estimate,
+            self._disturbance_estimate,
+            self._state_variance,
+            self._disturbance_variance,
+            sensor_message_tup,
+        ) = tup
+        self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
+        return self
+
+    @property
+    def spacecraft_time(self):
+        return np.array(self._spacecraft_time)
+
+    @property
+    def state_estimate(self):
+        return np.array(self._state_estimate)
+
+    @property
+    def disturbance_estimate(self):
+        return np.array(self._disturbance_estimate)
+
+    @property
+    def state_variance(self):
+        return np.array(self._state_variance)
+
+    @property
+    def disturbance_variance(self):
+        return np.array(self._disturbance_variance)
+
+    @property
+    def sensor_message(self):
+        return self._sensor_message

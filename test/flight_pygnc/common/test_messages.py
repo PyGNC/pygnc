@@ -144,9 +144,7 @@ class TestOrbitEstimateMessage(unittest.TestCase):
         assertNaNs = lambda x: self.assertTrue(np.all(np.isnan(x)))
         assertNP = lambda x: self.assertTrue(isinstance(x, np.ndarray))
 
-        self.assertTrue(isinstance(oem.epoch_iso, str))
         self.assertTrue(isinstance(oem.epoch, brahe.epoch.Epoch))
-        self.assertEqual(oem.epoch, brahe.epoch.Epoch(oem.epoch_iso))
 
         assertNP(oem.state_estimate)
         assertNP(oem.disturbance_estimate)
@@ -163,7 +161,9 @@ class TestOrbitEstimateMessage(unittest.TestCase):
         assertNaNs(oem.state_variance)
         assertNaNs(oem.disturbance_variance)
 
-        self.assertEqual(len(oem.as_tuple), 6)
+        oem_tup = oem.as_tuple
+        self.assertEqual(len(oem_tup), 6)
+        self.assertTrue(isinstance(oem_tup[0], str)) # epoch as iso string
 
         sm_test = TestSensorMessage()
         sm_test._verify_empty_sensor_message(oem.sensor_message)

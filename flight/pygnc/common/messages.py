@@ -232,7 +232,7 @@ class GPSMessage(MsgpackMessage):
 class OrbitEstimateMessage(MsgpackMessage):
     def __init__(
         self,
-        epoch_iso="0000-01-01T00:00:00Z",
+        epoch=brahe.epoch.Epoch("1000-01-01T00:00:00Z"),
         state_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
         disturbance_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
         state_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
@@ -245,7 +245,7 @@ class OrbitEstimateMessage(MsgpackMessage):
             # initialize from msgpack data and ignore other entries
             super()._from_msgpack_b(msgpack_b)
         else:
-            self._epoch_iso = epoch_iso
+            self._epoch = epoch
             self._state_estimate = tuple(state_estimate)
             self._disturbance_estimate = tuple(disturbance_estimate)
             self._state_variance = tuple(state_variance)
@@ -255,7 +255,7 @@ class OrbitEstimateMessage(MsgpackMessage):
     @property
     def as_tuple(self):
         return (
-            self._epoch_iso,
+            self._epoch.isoformat(),
             self._state_estimate,
             self._disturbance_estimate,
             self._state_variance,
@@ -265,23 +265,20 @@ class OrbitEstimateMessage(MsgpackMessage):
 
     def _from_tuple(self, tup):
         (
-            self._epoch_iso,
+            epoch_iso,
             self._state_estimate,
             self._disturbance_estimate,
             self._state_variance,
             self._disturbance_variance,
             sensor_message_tup,
         ) = tup
+        self._epoch = brahe.epoch.Epoch(epoch_iso)
         self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
         return self
 
     @property
-    def epoch_iso(self):
-        return self._epoch_iso
-
-    @property
     def epoch(self):
-        return brahe.epoch.Epoch(self._epoch_iso)
+        return self._epoch
 
     @property
     def state_estimate(self):

@@ -3,7 +3,7 @@ import numpy as np
 import time
 
 
-from ..common import data_parsing, transformations
+from ..common import data_parsing, transformations, messages
 from ..configuration import orbit_estimator as oe_config
 from ..algorithms.OrbitEstimator import OrbitEKF
 
@@ -28,6 +28,18 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
 
     return measurement_epoch
 
+def send_orbit_estimate_message(measurement_epoch, orbit_ekf, sensor_message):
+    x = orbit_ekf.x
+    F_diag = np.diag(orbit_ekf.F) 
+    oem = messages.OrbitEstimateMessage(
+        epoch=measurement_epoch,
+        state_estimate=x[0:6],
+        disturbance_estimate=x[6:-1],
+        state_variance=F_diag[0:6],
+        disturbance_variance=F_diag[6:-1],
+        sensor_message = sensor_message,
+    )
+    print(f"OrbitEstimateMessage:\n {oem.as_tuple}")
 
 def main(batch_gps_sensor_data_filepath):
     print("Orbit Estimator Task")
@@ -43,8 +55,9 @@ def main(batch_gps_sensor_data_filepath):
     prev_epoch = None
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
-        _, gps_message = bd
+        sensor_messages, gps_message = bd
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
+        send_orbit_estimate_message(prev_epoch, orbit_ekf, sensor_messages[-1])
         packet_count += 1
 
     print("Batch orbit estimation completed")

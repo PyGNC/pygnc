@@ -4,6 +4,7 @@ messages.py
 Definitions of messages that are passed around on ZeroMQ.
 Also acts as a common representation of data.
 """
+import brahe
 import msgpack
 import numpy as np
 
@@ -231,7 +232,7 @@ class GPSMessage(MsgpackMessage):
 class OrbitEstimateMessage(MsgpackMessage):
     def __init__(
         self,
-        spacecraft_time=np.nan,
+        epoch_iso="0000-01-01T00:00:00Z",
         state_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
         disturbance_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
         state_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
@@ -244,7 +245,7 @@ class OrbitEstimateMessage(MsgpackMessage):
             # initialize from msgpack data and ignore other entries
             super()._from_msgpack_b(msgpack_b)
         else:
-            self._spacecraft_time = spacecraft_time
+            self._epoch_iso = epoch_iso
             self._state_estimate = tuple(state_estimate)
             self._disturbance_estimate = tuple(disturbance_estimate)
             self._state_variance = tuple(state_variance)
@@ -254,7 +255,7 @@ class OrbitEstimateMessage(MsgpackMessage):
     @property
     def as_tuple(self):
         return (
-            self._spacecraft_time,
+            self._epoch_iso,
             self._state_estimate,
             self._disturbance_estimate,
             self._state_variance,
@@ -264,7 +265,7 @@ class OrbitEstimateMessage(MsgpackMessage):
 
     def _from_tuple(self, tup):
         (
-            self._spacecraft_time,
+            self._epoch_iso,
             self._state_estimate,
             self._disturbance_estimate,
             self._state_variance,
@@ -275,8 +276,12 @@ class OrbitEstimateMessage(MsgpackMessage):
         return self
 
     @property
-    def spacecraft_time(self):
-        return np.array(self._spacecraft_time)
+    def epoch_iso(self):
+        return self._epoch_iso
+
+    @property
+    def epoch(self):
+        return brahe.epoch.Epoch(self._epoch_iso)
 
     @property
     def state_estimate(self):

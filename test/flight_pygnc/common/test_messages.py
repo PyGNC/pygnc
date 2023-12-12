@@ -1,3 +1,4 @@
+import brahe
 import numpy as np
 import unittest
 
@@ -143,7 +144,10 @@ class TestOrbitEstimateMessage(unittest.TestCase):
         assertNaNs = lambda x: self.assertTrue(np.all(np.isnan(x)))
         assertNP = lambda x: self.assertTrue(isinstance(x, np.ndarray))
 
-        assertNP(oem.spacecraft_time)
+        self.assertTrue(isinstance(oem.epoch_iso, str))
+        self.assertTrue(isinstance(oem.epoch, brahe.epoch.Epoch))
+        self.assertEqual(oem.epoch, brahe.epoch.Epoch(oem.epoch_iso))
+
         assertNP(oem.state_estimate)
         assertNP(oem.disturbance_estimate)
         assertNP(oem.state_variance)
@@ -154,7 +158,6 @@ class TestOrbitEstimateMessage(unittest.TestCase):
         self.assertEqual(len(oem.state_variance), 6)
         self.assertEqual(len(oem.disturbance_variance), 6)
 
-        assertNaNs(oem.spacecraft_time)
         assertNaNs(oem.state_estimate)
         assertNaNs(oem.disturbance_estimate)
         assertNaNs(oem.state_variance)

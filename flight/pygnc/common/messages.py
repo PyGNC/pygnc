@@ -18,6 +18,8 @@ class MsgpackMessage:
         # requires child class to have implemented self._from_tuple(tup)
         return self._from_tuple(msgpack.unpackb(msgpack_b))
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.as_tuple}"
 
 class SensorMessage(MsgpackMessage):
     def __init__(

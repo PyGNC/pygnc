@@ -49,6 +49,7 @@ class OrbitMEKF(MEKFCore):
             """
             return process_dynamics(x, u, dt)
         
+        #take in the state and an inertial measurement at that timestep. Need a way to get this
         def measurement_function(x, inertial_measurement):
             """
             Measurement function for magnetic field and 
@@ -56,50 +57,110 @@ class OrbitMEKF(MEKFCore):
             measurement is this true measurment rotated by the 
             predicted attitude
             """
+            #sun is 0:3
+            #magnetometer is 3:6
 
             q = x[0:4]
+            
+            #magnetomter bias in the body frame
+            magnetometer_bias = x[7:10]
 
-            Q_m = block_diag(quaternion_to_rotmatrix(q).T,quaternion_to_rotmatrix(q).T)
+            #inertial measurements (not normalized)
+            b_measurement = inertial_measurement[0:3]
 
-            predicted_measurement = Q_m @ inertial_measurement
+            sun_measurement = inertial_measurement[3:]
 
+            #this is rotation from inertial to body frame
+            Q_N_B = quaternion_to_rotmatrix(q).T 
+
+            #need the unnormalized predictions for the jacobians
+            sun_predicted = Q_N_B @ sun_measurement
+
+            mag_predicted = Q_N_B @ b_measurement
+
+            #normalized predictions. This is what we use in the measurement model. 
+            sun_predicted_n = Q_N_B @ (sun_measurement/np.linalg.norm(sun_measurement))
+
+            mag_predicted_n = (Q_N_B@b_measurement+magnetometer_bias)/np.linalg.norm((Q_N_B@b_measurement+magnetometer_bias))
+
+            predicted_measurement = np.vstack((sun_predicted_n, mag_predicted_n))
+
+            #Find C -> dh/dx
+
+            #3x3 matrices 
+            dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)@hat(sun_predicted) - ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T@Q_N_B.T@hat(sun_predicted))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
+
+            #3x3 matrices
+            dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)@hat(mag_predicted) - ((Q_N_B@b_measurement + magnetometer_bias)/(np.linal.norm(Q_N_B@b_measurement + magnetometer_bias)))@(Q_N_B@b_measurement + magnetometer_bias).T + hat(mag_predicted))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+
+            dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)@np.eye(3) - ((Q_N_B@b_measurement + magnetometer_bias)/(np.linal.norm(Q_N_B@b_measurement + magnetometer_bias))) @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+
+            C = np.block([[dy_sun_dphi, np.zeros((3,6))], [dy_mag_dphi, np.zeros((3,3)), dy_mag_dmb]])
+
+            #b_measurement_biased = b_measurement + magnetometer_bias
+            #inertial_measurement = np.vstack((sun_measurement, b_measurement_biased))
+            #inertial_measurement  = [sun; b measurement biased]
+            #Q_m = block_diag(quaternion_to_rotmatrix(q).T,quaternion_to_rotmatrix(q).T)
+            #predicted_measurement = Q_m @ inertial_measurement #+ np.vstack((np.zeros((3,3)), np.eye(3)))
             #updated C matrix to incorporate magnetometer bias. Ensure magnetomoeter bias is last in the measurement vector
-            C = np.block([[2*hat(predicted_measurement[0:3]), np.zeros((3,6))], [2*hat(predicted_measurement[3:6]), np.zeros((3,3)), np.identity(3)]])
-
-            #this predicted measurement is already biased since the inertial measurement
-            #is already biased
+            #had before
+            #C = np.block([[2*hat(predicted_measurement[0:3]), np.zeros((3,6))], [2*hat(predicted_measurement[3:6]), np.zeros((3,3)), np.identity(3)]])
+            #drm_dphi = 2*np.linalg.norm(quaternion_to_rotmatrix(q).T@b_measurement + magnetometer_bias)@hat(predicted_measurement[3:6])
+            #update (need to check if it works)
+            #C = np.block([[2*hat(predicted_measurement[0:3]), np.zeros((3,6))], [2*hat(predicted_measurement[3:6]), np.zeros((3,3)), quaternion_to_rotmatrix(q).T]])
             
             return predicted_measurement, C
         
         #measurement noise matrix
 
-        #first is magnetic field, second is sun vector measurement
-        #std for the sun sensor lux values 
-        R_noise = block_diag(np.identity(3)*(5*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
+        #NEED TO TUNE THIS. How do the standard deviation of the measurements affect the vector measurements?
+        #std for the sun sensor lux values
+        #From models.jl
+        # std of sun sensor: 0.1 lux
+        # std of magnetometer: 0.6 uT 
+        #R_noise = block_diag(np.identity(3)*(5*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
+
+        #the measurements of lux are 6 and magnetometer are 3. The uncertainty of these variables is mapped
+        # to the unit vector uncertainty through a jacobian. A_m*P*A_m.T
 
         #process noise matrix
         #Q_noise = block_diag(np.identity(3)*(5e-4)**2, np.identity(3)*(0.00001)**2)
         #can be tuned
         #Q_noise = block_diag(np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(0.0001*math.pi/180)**2)
         #first noise is gyro noise, second is gyro bias random walk noise, and third is magnetometer bias random walk noise
-        Q_noise = block_diag(np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(0.001*math.pi/180)**2, np.identity(3)*(0.001*math.pi/180)**2)
+        #Kind of working this bottom Q
+        #Q_noise = block_diag(np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(0.001*math.pi/180)**2, np.identity(3)*(0.001*math.pi/180)**2)
 
-        #initial covariance
+        #all from models.jl
+        #std of gyro: 0.025 deg/s
+        #std of gyro bias: 3 deg/s
+        #std of magnetometer bias: 40 uT
+        Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(40**2))
+        #initial covariance 
         P_0 = np.identity(9)*1e-6
+        #Initialize with Q_noise
+        #P_0 = Q_noise
 
         #initialize the MEKF
         #gyro initialized to zero and then update based off reading the
         #.bin files
 
+        # super().__init__(
+        #     P_0, time_dynamics, np.zeros(3), measurement_function, R_noise, Q_noise
+        # )
+
+        #removed R from the class 
         super().__init__(
-            P_0, time_dynamics, np.zeros(3), measurement_function, R_noise, Q_noise
+            P_0, time_dynamics, np.zeros(3), measurement_function, Q_noise
         )
 
     def initialize_state(self):
         # initial state
         #arbitrary initial state. may need to change this
         q0 = np.array([0.18257418583505536, 0.3651483716701107, 0.5477225575051661,0.7302967433402214])
-        b0 = np.array([0.001,0.001,0.001])
-        mb0 = np.array([0.001,0.001,0.001])
+        #b0 = np.array([0.001,0.001,0.001])
+        b0 = np.array([0.05,0.05,0.05]) #this is in rad/s
+        #mb0 = np.array([0.001,0.001,0.001])
+        mb0 = np.array([40,30,25]) #this is in uT
         x0 = np.hstack((q0,b0, mb0))
         super().initialize_state(x0)

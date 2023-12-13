@@ -155,7 +155,8 @@ py4_sensor_model_full = SatelliteSensors(
         gyro_zero_rate_offset_bound_deg_s=3, # from bmx160 datasheet
         mag_zero_B_offset_bound_uT=40, # from bmx160 datasheet
         mag_standard_deviation_uT=0.6, # from bmx160 datasheet
-        R_IMU_body=[0.0 1.0 0.0; -1.0 0.0 0.0; 0.0 0.0 -1.0]'
+        R_IMU_body=[0.0 1.0 0.0; -1.0 0.0 0.0; 0.0 0.0 -1.0]' 
+        #since it is transposed takes us from inertial -> body satellite coordinates
     ),
     GPSModel(;
         position_standard_deviation_m=10.0, # from what Zac told us

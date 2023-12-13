@@ -65,6 +65,8 @@ function simulate_scenario(;
         sun_sensors = [sun_sensors_positive_faces; sun_sensors_negative_faces]
 
         mag_T = R_IMU_body * env.b
+
+
         #ut is microtesla. 
         #example: 1e-3 m = 1 mm. here we have 1e-6 T = 1 uT
         mag_measurement = 1e6 * mag_T .+ mag_std_dev_matrix_uT * randn(3) .+ mag_bias_uT

@@ -27,6 +27,8 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
     else:
         #this was code before (negative)
         #dt = prev_epoch - measurement_epoch
+        
+        print("in here")
 
         dt = abs(prev_epoch - measurement_epoch)
 

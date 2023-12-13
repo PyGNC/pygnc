@@ -34,8 +34,6 @@ def start_processes():
     attitude_estimator_p.start()
     processes["attitude_estimator"] = attitude_estimator_p
 
-
-
     return processes
 
 

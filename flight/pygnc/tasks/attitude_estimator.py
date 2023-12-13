@@ -14,23 +14,44 @@ from ..algorithms.AttitudeEstimator import OrbitMEKF
 #solar lux + earth albedo lux
 total_lux = (1361 * 98) + 0.4 * (1361 * 98)
 
-def get_sun_vector(sun_sensors_normalized): 
+# def get_sun_vector(sun_sensors_normalized): 
 
-    B = np.vstack((np.eye(3), -np.eye(3)))
 
-    #use the pseudoinverse to solve for the sun vector
-    sun_vector = np.linalg.solve(B.T@B, B.T@sun_sensors_normalized[:,None])
 
-    #reduce a dimension to sun vector
-    sun_vector = sun_vector[:,0]
+#     B = np.vstack((np.eye(3), -np.eye(3)))
 
-    #normalize
-    sun_vector = sun_vector / np.linalg.norm(sun_vector)
+#     #use the pseudoinverse to solve for the sun vector
+#     sun_vector = np.linalg.solve(B.T@B, B.T@sun_sensors_normalized[:,None])
 
-    return sun_vector    
+#     #reduce a dimension to sun vector
+#     sun_vector = sun_vector[:,0]
 
-def update_orbit_mekf(orbit_mekf, sensor_message, prev_epoch=None):
-    # get position and velocity state from sensor message
+#     #normalize
+#     sun_vector = sun_vector / np.linalg.norm(sun_vector)
+
+#     return sun_vector  
+
+
+
+def get_sun_vector(sun_sensors)
+
+    sun_positive = sun_sensors[0:3]
+    sun_negative = sun_sensors[3:]
+
+    #positive face lux values - negative face lux values
+    sun_vector_body = sun_positive - sun_negative
+
+    #normalize 
+    sun_vector_body = sun_vector/np.linalg.norm(sun_vector_body)
+
+    return sun_vector_body
+
+
+def update_orbit_mekf(orbit_mekf, sensor_message, gps_message, prev_epoch=None, prev_spacecraft_time=None):
+    # get the epoch of the measurement
+    measurement_epoch = transformations.gps_week_milliseconds_to_brahe_epoch(
+        gps_message.gps_week, gps_message.gps_milliseconds
+    )
 
     #these are in deg/s
     gyro_measurements = sensor_message.gyro_measurement
@@ -45,20 +66,20 @@ def update_orbit_mekf(orbit_mekf, sensor_message, prev_epoch=None):
     mag_measurements = sensor_message.mag_measurement
 
     #normalize the magnetometer measurement
-    mag_measurements = mag_measurements/np.linalg.norm(mag_measurements)
+    mag_vector = mag_measurements/np.linalg.norm(mag_measurements)
 
     #unnormalized lux measurements
     sun_measurements = sensor_message.sun_sensors
 
-    sun_measurement_normalized = sun_measurements/ total_lux
+    #sun_measurement_normalized = sun_measurements/ total_lux
 
     #these sun measurements are normalized
     #print("sun measurements: ", sun_measurements)
 
-    spacecraft_time = sensor_message.spacecraft_time
-
     #normalized in the function
-    sun_vector = get_sun_vector(sun_measurement_normalized)
+    sun_vector = get_sun_vector(sun_measurements)
+
+    all_raw_measurements = np.hstack((sun_measurements, mag_measurements))
 
     #print("this is sun vector: ", sun_vector)
 
@@ -69,24 +90,48 @@ def update_orbit_mekf(orbit_mekf, sensor_message, prev_epoch=None):
     #print("sun vector measurements: ", sun_vector)
     #print("gyro measurements: ", gyro_measurements)
 
-    state_measurement_body = np.hstack([[sun_vector], [mag_measurements]])
+    #inertial vectors #this would be from the kalman predictions as well as updates
+     
+    #this is the true measurements
+    state_measurement_body = np.hstack([[sun_vector], [mag_vector]])
 
     state_measurement_body = state_measurement_body.T[:,0]
 
     #print("state measurement body: ", state_measurement_body)
 
-    if prev_epoch is None:
+    if prev_epoch is None and prev_spacecraft_time is None:
         #initialize at an arbitrary attitude
         orbit_mekf.initialize_state()
         orbit_mekf.u = gyro_measurements
+        current_epoch = measurement_epoch
+        current_spacecraft_time = sensor_message.spacecraft_time
+
     else:
+        current_spacecraft_time = sensor_message.spacecraft_time
+        dt = abs(current_spacecraft_time - prev_spacecraft_time)
+
+        #avoid hard coding dt because dt can be variable...
         #dt = prev_epoch - measurement_epoch
-        dt = 5; #defined when generating the .bin files
+        #dt = 5; #defined when generating the .bin files
+        current_epoch = prev_epoch + dt
+
+        #get the inertial measurement
+        sun_vector_inertial = 
+        
+        mag_vector_inertial = 
+
+        #pass in not normalized. The measurement function takes care of it
+        inertial_measurement = np.hstack((sun_vector_inertial, mag_vector_inertial))
+
         orbit_mekf.u = gyro_measurements
-        orbit_mekf.update(state_measurement_body, dt)
+        orbit_mekf.update(all_raw_measurements, state_measurement_body, inertial_measurement, dt)
+        #update the previous epoch
+        
+
+    return current_epoch, current_spacecraft_time
 
     #return measurement_epoch
-    return spacecraft_time
+    #return spacecraft_time
 
 #the filter is initialized with the first measurement and then updated
 
@@ -113,11 +158,12 @@ def main(batch_gps_sensor_data_filepath):
 
         #this is a list of sensor measurements. The amount of sensor measurments in one update of the GPS is 5
         #Ensure that you pass in the next measurement
-        sensor_msg, _ = bd
+
+        sensor_msg, gps_message = bd
 
         for i in range(len(sensor_msg)):
             sensor_msgs = sensor_msg[i]
-            prev_epoch = update_orbit_mekf(orbit_mekf, sensor_msgs, prev_epoch)
+            prev_epoch, prev_spacecraft_time = update_orbit_mekf(orbit_mekf, sensor_msgs, gps_message, prev_epoch, prev_spacecraft_time)
 
             #save the state estimate
             all_estimates[:,count] = orbit_mekf.x

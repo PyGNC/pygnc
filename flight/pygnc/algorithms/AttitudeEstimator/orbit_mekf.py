@@ -63,12 +63,15 @@ class OrbitMEKF(MEKFCore):
             q = x[0:4]
             
             #magnetomter bias in the body frame
-            magnetometer_bias = x[7:10]
+            magnetometer_bias = x[7:10][:,np.newaxis]
 
             #inertial measurements (not normalized)
-            b_measurement = inertial_measurement[0:3]
+            #b_measurement = inertial_measurement[0:3][:,np.newaxis]
+            #sun_measurement = inertial_measurement[3:][:,np.newaxis]
 
-            sun_measurement = inertial_measurement[3:]
+            sun_measurement = inertial_measurement[0:3][:,np.newaxis]
+
+            b_measurement = inertial_measurement[3:][:,np.newaxis]
 
             #this is rotation from inertial to body frame
             Q_N_B = quaternion_to_rotmatrix(q).T 
@@ -84,16 +87,22 @@ class OrbitMEKF(MEKFCore):
             mag_predicted_n = (Q_N_B@b_measurement+magnetometer_bias)/np.linalg.norm((Q_N_B@b_measurement+magnetometer_bias))
 
             predicted_measurement = np.vstack((sun_predicted_n, mag_predicted_n))
-
+            
             #Find C -> dh/dx
-
             #3x3 matrices 
-            dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)@hat(sun_predicted) - ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T@Q_N_B.T@hat(sun_predicted))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
+            #the backslash is just to start a new line in the equation
+            dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
+                        ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
+                        @Q_N_B.T@hat(np.squeeze(sun_predicted)))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
 
             #3x3 matrices
-            dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)@hat(mag_predicted) - ((Q_N_B@b_measurement + magnetometer_bias)/(np.linal.norm(Q_N_B@b_measurement + magnetometer_bias)))@(Q_N_B@b_measurement + magnetometer_bias).T + hat(mag_predicted))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+            dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*hat(np.squeeze(mag_predicted)) -\
+                        ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
+                        @(Q_N_B@b_measurement + magnetometer_bias).T + hat(np.squeeze(mag_predicted)))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
 
-            dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)@np.eye(3) - ((Q_N_B@b_measurement + magnetometer_bias)/(np.linal.norm(Q_N_B@b_measurement + magnetometer_bias))) @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+            dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*np.eye(3) -\
+                        ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
+                        @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
 
             C = np.block([[dy_sun_dphi, np.zeros((3,6))], [dy_mag_dphi, np.zeros((3,3)), dy_mag_dmb]])
 

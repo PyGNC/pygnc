@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from ..common import data_parsing, transformations
 from ..configuration import orbit_estimator as oe_config
 from ..algorithms.AttitudeEstimator import OrbitMEKF
+from ..algorithms.AttitudeEstimator import inertial_models
 
 #solar lux + earth albedo lux
 total_lux = (1361 * 98) + 0.4 * (1361 * 98)
@@ -31,9 +32,13 @@ total_lux = (1361 * 98) + 0.4 * (1361 * 98)
 
 #     return sun_vector  
 
+#import the ground truth states txt file
+ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history.txt', delimiter=',')
+
+print('ground truth states: ', ground_truth_states.shape)
 
 
-def get_sun_vector(sun_sensors)
+def get_sun_vector(sun_sensors):
 
     sun_positive = sun_sensors[0:3]
     sun_negative = sun_sensors[3:]
@@ -42,12 +47,12 @@ def get_sun_vector(sun_sensors)
     sun_vector_body = sun_positive - sun_negative
 
     #normalize 
-    sun_vector_body = sun_vector/np.linalg.norm(sun_vector_body)
+    sun_vector_body = sun_vector_body/np.linalg.norm(sun_vector_body)
 
     return sun_vector_body
 
 
-def update_orbit_mekf(orbit_mekf, sensor_message, gps_message, prev_epoch=None, prev_spacecraft_time=None):
+def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=None, prev_spacecraft_time=None):
     # get the epoch of the measurement
     measurement_epoch = transformations.gps_week_milliseconds_to_brahe_epoch(
         gps_message.gps_week, gps_message.gps_milliseconds
@@ -72,9 +77,6 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message, prev_epoch=None, 
     sun_measurements = sensor_message.sun_sensors
 
     #sun_measurement_normalized = sun_measurements/ total_lux
-
-    #these sun measurements are normalized
-    #print("sun measurements: ", sun_measurements)
 
     #normalized in the function
     sun_vector = get_sun_vector(sun_measurements)
@@ -111,22 +113,18 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message, prev_epoch=None, 
         dt = abs(current_spacecraft_time - prev_spacecraft_time)
 
         #avoid hard coding dt because dt can be variable...
-        #dt = prev_epoch - measurement_epoch
-        #dt = 5; #defined when generating the .bin files
         current_epoch = prev_epoch + dt
 
-        #get the inertial measurement
-        sun_vector_inertial = 
+        sun_vector_inertial = brahe.sun_position(current_epoch)
         
-        mag_vector_inertial = 
+        #50 because that is every 5 seconds in the ground truth states array. This is because that was sampled with a dt of 0.1 s
+        mag_vector_inertial = inertial_models.IGRF13(ground_truth_states[count*50,0:3], current_epoch)
 
         #pass in not normalized. The measurement function takes care of it
         inertial_measurement = np.hstack((sun_vector_inertial, mag_vector_inertial))
 
         orbit_mekf.u = gyro_measurements
         orbit_mekf.update(all_raw_measurements, state_measurement_body, inertial_measurement, dt)
-        #update the previous epoch
-        
 
     return current_epoch, current_spacecraft_time
 
@@ -151,8 +149,9 @@ def main(batch_gps_sensor_data_filepath):
 
     packet_count = 0
     prev_epoch = None
-
+    prev_spacecraft_time = None
     count = 0
+
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
 
@@ -163,7 +162,7 @@ def main(batch_gps_sensor_data_filepath):
 
         for i in range(len(sensor_msg)):
             sensor_msgs = sensor_msg[i]
-            prev_epoch, prev_spacecraft_time = update_orbit_mekf(orbit_mekf, sensor_msgs, gps_message, prev_epoch, prev_spacecraft_time)
+            prev_epoch, prev_spacecraft_time = update_orbit_mekf(orbit_mekf, sensor_msgs, gps_message, count, prev_epoch, prev_spacecraft_time)
 
             #save the state estimate
             all_estimates[:,count] = orbit_mekf.x
@@ -179,8 +178,6 @@ def main(batch_gps_sensor_data_filepath):
     
     print("Batch attitude estimation completed")
 
-    #import the ground truth states txt file
-    ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history.txt', delimiter=',')
 
     #print size of ground truth states
     print("ground truth states shape: ", ground_truth_states.shape)

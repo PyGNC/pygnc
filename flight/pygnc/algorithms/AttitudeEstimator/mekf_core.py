@@ -3,6 +3,7 @@ import autograd.numpy as np
 #from scipy.linalg import sqrtm 
 #from scipy.linalg import qr
 from scipy.linalg import solve
+from scipy.linalg import block_diag
 #(TODO: implement the square root version of the MEKF to see if it improves the results?)
 
 #import a set of utils for mekf
@@ -17,7 +18,7 @@ from .mekf_utils import *
 class MEKFCore:
     # constructor
     #def __init__(self, P0, dynamics, gyro_m, measure, R, Q) -> None:
-    def __init__(self, P0, dynamics, gyro_m, measure, R, Q) -> None:
+    def __init__(self, P0, dynamics, gyro_m, measure, Q) -> None:
         self.P = P0  # initial covariance
         self.f = dynamics  # discrete dynamics function used
         self.u = gyro_m #gyro measurements
@@ -29,7 +30,7 @@ class MEKFCore:
         self.x = x0
 
     #9x1 measurements vectors [6 lux measurements; 3 b vector measurents]
-    def get_R(all_raw_measurements): 
+    def get_R(self, all_raw_measurements): 
         
         #positive face lux measurements
         sp = all_raw_measurements[0:3]
@@ -131,7 +132,7 @@ class MEKFCore:
 
         # innovation
         #true body measurement  - predicted body measurement
-        Z = body_measurement - predicted_body_measurement
+        Z = body_measurement[:,np.newaxis] - predicted_body_measurement
         
         return Z, C
     
@@ -168,6 +169,8 @@ class MEKFCore:
 
         delta = L_ @ Z
 
+        #go to vector 
+        delta = delta[:,0]
         #get the delta quaternion from the rodrigues parameter (delta rotation)
         dq = RP_to_quaternion(delta[0:3])
         
@@ -184,7 +187,7 @@ class MEKFCore:
         self.x[7:] = x_predicted[7:] + delta[6:]
 
         #get R
-        R = self.get_R(all_raw_measurement)
+        R = self.get_R(all_raw_measurements)
 
         #update the covariance
         self.P = (np.identity(9) - L_@C)@P_predicted@(np.identity(9) - L_@C).T + L_@R@L_.T

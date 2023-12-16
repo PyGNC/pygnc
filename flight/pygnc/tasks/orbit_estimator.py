@@ -5,6 +5,7 @@ import time
 
 from ..common import data_parsing, transformations, messages
 from ..configuration import orbit_estimator as oe_config
+from ..configuration import pygnc as pygnc_config
 from ..algorithms.OrbitEstimator import OrbitEKF
 
 
@@ -41,7 +42,7 @@ def send_orbit_estimate_message(measurement_epoch, orbit_ekf, sensor_message):
     )
     print(f"OrbitEstimateMessage:\n {oem.as_tuple}")
 
-def main(batch_gps_sensor_data_filepath):
+def main(port):
     print("Orbit Estimator Task")
 
     # instantiate orbit estimator
@@ -49,7 +50,7 @@ def main(batch_gps_sensor_data_filepath):
 
     # batch update orbit estimator
     batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
-        batch_gps_sensor_data_filepath
+        pygnc_config.batch_sensor_gps_filepath
     )
     packet_count = 0
     prev_epoch = None

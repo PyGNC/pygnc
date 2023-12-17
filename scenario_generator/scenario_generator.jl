@@ -45,6 +45,9 @@ function simulate_scenario(;
     mag_bias_uT = sensor_model.imu_model.mag_zero_B_offset_bound_uT * (2 .* rand(3) .- 1.0)
     gyro_bias_deg_s = sensor_model.imu_model.gyro_zero_rate_offset_bound_deg_s * (2 .* rand(3) .- 1.0)
 
+    println("THIS IS THE MAG BIAS: ", mag_bias_uT)
+    println("THIS IS THE GYRO BIAS: ", gyro_bias_deg_s)
+
     function measure(state, env)
         sun_vector_eci = SatelliteDynamics.sun_position(env.time)
         unix_time_s = epoch_to_unix_time(env.time)
@@ -68,8 +71,10 @@ function simulate_scenario(;
 
 
         #ut is microtesla. 
-        #example: 1e-3 m = 1 mm. here we have 1e-6 T = 1 uT
+        #here we have 1e-6 T = 1 uT
         mag_measurement = 1e6 * mag_T .+ mag_std_dev_matrix_uT * randn(3) .+ mag_bias_uT
+
+        # this transforms the measurement from the body frame to the IMU frame
         angular_veloctity_deg_s = R_IMU_body * rad2deg.(state.angular_velocity)
         gyro_measurement = angular_veloctity_deg_s .+ gyro_std_dev_matrix_deg_s * randn(3) .+ gyro_bias_deg_s
 

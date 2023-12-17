@@ -4,6 +4,7 @@ import autograd.numpy as np
 #from scipy.linalg import qr
 from scipy.linalg import solve
 from scipy.linalg import block_diag
+import math
 #(TODO: implement the square root version of the MEKF to see if it improves the results?)
 
 #import a set of utils for mekf
@@ -14,6 +15,7 @@ from .mekf_utils import *
 # x[4], x[5], x[6] -> x,y,z gyro bias
 # x[7], x[8], x[9] -> x,y,z magnetometer bias
 
+#values of C are really small. may be worth implementing the square root version of the MEKF
 
 class MEKFCore:
     # constructor
@@ -30,6 +32,46 @@ class MEKFCore:
         self.x = x0
 
     #9x1 measurements vectors [6 lux measurements; 3 b vector measurents]
+    #revised get R
+    # def get_R(self, all_raw_measurements): 
+        
+    #     #positive face lux measurements
+    #     sp = all_raw_measurements[0:3][:,np.newaxis]
+
+    #     #negative face lux measurements
+    #     sn = all_raw_measurements[3:6][:,np.newaxis]
+
+    #     #magnetometer measurements
+    #     mag = all_raw_measurements[6:][:,np.newaxis]
+
+    #     #0.01 is the standard deviation from the lux measurements. Standard deviation from models.jl definition
+    #     R_lux = np.eye(6)*(0.01)**2
+
+    #     #transform 6x6 lux uncertainty to 3 dimensional vector noise
+
+    #     #jacobian for the linear covariance transformation
+    #     #each a 3x3 matrix of the partials. df/dsp and df/dsn
+    #     A_lux_1 = (np.linalg.norm(sp-sn)*np.eye(3) - (1/np.linalg.norm(sp-sn))*(sp-sn)@(sp-sn).T@(np.eye(3)))/(np.linalg.norm(sp-sn)**2)
+    #     A_lux_2 =  (np.linalg.norm(sp-sn)*(-1*np.eye(3)) - (1/np.linalg.norm(sp-sn))*(sp-sn)@(sp-sn).T@(-1*np.eye(3)))/(np.linalg.norm(sp-sn)**2)
+
+    #     A_lux = np.hstack((A_lux_1, A_lux_2))
+
+    #     R_sun_vec = A_lux@R_lux@A_lux.T
+
+    #     #do the same for the magnetometer measurement. Standard deviation from models.jl definition
+    #     R_mag = np.eye(3)*(0.6)**2
+
+    #     A_mag = (np.linalg.norm(mag)*np.eye(3) - (mag/np.linalg.norm(mag))@mag.T)/(np.linalg.norm(mag)**2)
+
+    #     R_mag_vec = A_mag@R_mag@A_mag.T
+
+    #     #measurement noise on inertial vectors
+    #     R_noise = block_diag(R_sun_vec, R_mag_vec)
+
+    #     return R_noise
+
+
+    #old get R function
     def get_R(self, all_raw_measurements): 
         
         #positive face lux measurements
@@ -49,7 +91,9 @@ class MEKFCore:
         #jacobian for the linear covariance transformation
         #each a 3x3 matrix of the partials. df/dsp and df/dsn
         A_lux_1 = (np.linalg.norm(sp-sn)*np.eye(3) - (1/np.linalg.norm(sp-sn))*(sp-sn)@(sp-sn).T)/(np.linalg.norm(sp-sn)**2)
-        A_lux_2 =  (np.linalg.norm(sp-sn)*-1*np.eye(3) - (1/np.linalg.norm(sp-sn))*(sn-sp)@(sn-sp).T)/(np.linalg.norm(sp-sn)**2)
+        #A_lux_2 =  (np.linalg.norm(sp-sn)*-1*np.eye(3) - (1/np.linalg.norm(sp-sn))*(sn-sp)@(sn-sp).T)/(np.linalg.norm(sp-sn)**2)
+
+        A_lux_2 =  (np.linalg.norm(sp-sn)*-1*np.eye(3) - (-1/np.linalg.norm(sp-sn))*(sp-sn)@(sp-sn).T)/(np.linalg.norm(sp-sn)**2)
 
         A_lux = np.hstack((A_lux_1, A_lux_2))
 
@@ -107,6 +151,8 @@ class MEKFCore:
         MEKF prediction step
         h is the timestep
         """
+        
+        #print("this is gyro measurement: ", self.u)
         # discrete dynamics function of state
         x_predicted = self.f(self.x,self.u,h)
 
@@ -133,6 +179,14 @@ class MEKFCore:
         # innovation
         #true body measurement  - predicted body measurement
         Z = body_measurement[:,np.newaxis] - predicted_body_measurement
+
+        #print("this is body measurement: ", body_measurement)
+        #print("this is predicted body: ", predicted_body_measurement)
+        
+        #print("this is Z: ", Z)
+
+        #print("this is C: ", C)
+
         
         return Z, C
     
@@ -141,7 +195,9 @@ class MEKFCore:
         MEKF Kalman Gain
         """
 
-        R = self.get_R(all_raw_measurements)
+        #R = self.get_R(all_raw_measurements)
+
+        R = block_diag(np.identity(3)*(1*math.pi/180)**2, np.identity(3)*(2*math.pi/180)**2)
 
         # innovation covariance
         S = C@P_predicted@C.T + R
@@ -171,6 +227,9 @@ class MEKFCore:
 
         #go to vector 
         delta = delta[:,0]
+
+        print("this is delta: ", delta)
+
         #get the delta quaternion from the rodrigues parameter (delta rotation)
         dq = RP_to_quaternion(delta[0:3])
         
@@ -187,7 +246,9 @@ class MEKFCore:
         self.x[7:] = x_predicted[7:] + delta[6:]
 
         #get R
-        R = self.get_R(all_raw_measurements)
+        #R = self.get_R(all_raw_measurements)
+
+        R = block_diag(np.identity(3)*(5*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
 
         #update the covariance
         self.P = (np.identity(9) - L_@C)@P_predicted@(np.identity(9) - L_@C).T + L_@R@L_.T

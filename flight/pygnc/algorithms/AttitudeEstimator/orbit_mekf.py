@@ -20,7 +20,7 @@ def process_dynamics(x, u, h):
 
     mag_bias = x[7:10]
 
-    #bias gyro measurement
+    #biased gyro measurement in radians
     omega = u
 
     theta = np.linalg.norm(omega - beta)*h
@@ -49,7 +49,7 @@ class OrbitMEKF(MEKFCore):
             """
             return process_dynamics(x, u, dt)
         
-        #take in the state and an inertial measurement at that timestep. Need a way to get this
+        #take in the state and an inertial measurement at that timestep
         def measurement_function(x, inertial_measurement):
             """
             Measurement function for magnetic field and 
@@ -65,6 +65,11 @@ class OrbitMEKF(MEKFCore):
             #magnetomter bias in the body frame
             magnetometer_bias = x[7:10][:,np.newaxis]
 
+            #takes us from body to imu frame
+            #R_IMU_body = np.array([[0.0, 1.0, 0.0],
+            #          [-1.0, 0.0, 0.0],
+            #          [0.0, 0.0, -1.0]]).T
+
             #inertial measurements (not normalized)
             #b_measurement = inertial_measurement[0:3][:,np.newaxis]
             #sun_measurement = inertial_measurement[3:][:,np.newaxis]
@@ -72,6 +77,8 @@ class OrbitMEKF(MEKFCore):
             sun_measurement = inertial_measurement[0:3][:,np.newaxis]
 
             b_measurement = inertial_measurement[3:][:,np.newaxis]
+
+            #b_measurement = inertial_measurement[3:][:,np.newaxis]
 
             #this is rotation from inertial to body frame
             Q_N_B = quaternion_to_rotmatrix(q).T 
@@ -91,21 +98,41 @@ class OrbitMEKF(MEKFCore):
             #Find C -> dh/dx
             #3x3 matrices 
             #the backslash is just to start a new line in the equation
+
+            #NEW REVISED (not working. singular matrix bug)
             dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
                         ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
-                        @Q_N_B.T@hat(np.squeeze(sun_predicted)))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
+                        @Q_N_B.T@(2*hat(np.squeeze(sun_predicted))))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
 
             #3x3 matrices
             dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*hat(np.squeeze(mag_predicted)) -\
                         ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
-                        @(Q_N_B@b_measurement + magnetometer_bias).T + hat(np.squeeze(mag_predicted)))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+                        @(Q_N_B@b_measurement + magnetometer_bias).T @ (2*hat(np.squeeze(mag_predicted))))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
 
             dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*np.eye(3) -\
                         ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
                         @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
 
+            #OLD (has bugs)
+            dy_sun_dphi_old = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
+                        ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
+                        @Q_N_B.T@hat(np.squeeze(sun_predicted)))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
+
+            #3x3 matrices
+            # dy_mag_dphi_old = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*hat(np.squeeze(mag_predicted)) -\
+            #             ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
+            #             @(Q_N_B@b_measurement + magnetometer_bias).T + hat(np.squeeze(mag_predicted)))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+
+            # dy_mag_dmb_old = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*np.eye(3) -\
+            #             ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
+            #             @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+
+            # C_old = np.block([[dy_sun_dphi_old, np.zeros((3,6))], [dy_mag_dphi_old, np.zeros((3,3)), dy_mag_dmb_old]])
+
             C = np.block([[dy_sun_dphi, np.zeros((3,6))], [dy_mag_dphi, np.zeros((3,3)), dy_mag_dmb]])
 
+            #print("this is C: ", C)
+            #print("this is C_old: ", C_old)
             #b_measurement_biased = b_measurement + magnetometer_bias
             #inertial_measurement = np.vstack((sun_measurement, b_measurement_biased))
             #inertial_measurement  = [sun; b measurement biased]
@@ -145,10 +172,17 @@ class OrbitMEKF(MEKFCore):
         #std of gyro bias: 3 deg/s
         #std of magnetometer bias: 40 uT
         Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(40**2))
+
+        #testing
+        #Q_noise = block_diag(np.identity(3)*(0.05*math.pi/180)**2, np.identity(3)*(5*math.pi/180)**2, np.identity(3)*(50**2))
+
+
+        #trying out new Q
+        #Q_noise = block_diag(np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(5)**2)
         #initial covariance 
-        P_0 = np.identity(9)*1e-6
+        #P_0 = np.identity(9)*1e-1
         #Initialize with Q_noise
-        #P_0 = Q_noise
+        P_0 = Q_noise
 
         #initialize the MEKF
         #gyro initialized to zero and then update based off reading the
@@ -168,7 +202,8 @@ class OrbitMEKF(MEKFCore):
         #arbitrary initial state. may need to change this
         q0 = np.array([0.18257418583505536, 0.3651483716701107, 0.5477225575051661,0.7302967433402214])
         #b0 = np.array([0.001,0.001,0.001])
-        b0 = np.array([0.05,0.05,0.05]) #this is in rad/s
+        #b0 = np.array([0.05,0.05,0.05]) #this is in rad/s
+        b0 = np.array([1,1,1])*math.pi/180  #this is in rad/s
         #mb0 = np.array([0.001,0.001,0.001])
         mb0 = np.array([40,30,25]) #this is in uT
         x0 = np.hstack((q0,b0, mb0))

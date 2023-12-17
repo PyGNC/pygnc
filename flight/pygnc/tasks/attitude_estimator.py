@@ -17,8 +17,6 @@ total_lux = (1361 * 98) + 0.4 * (1361 * 98)
 
 # def get_sun_vector(sun_sensors_normalized): 
 
-
-
 #     B = np.vstack((np.eye(3), -np.eye(3)))
 
 #     #use the pseudoinverse to solve for the sun vector
@@ -35,7 +33,12 @@ total_lux = (1361 * 98) + 0.4 * (1361 * 98)
 #import the ground truth states txt file
 ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history.txt', delimiter=',')
 
-print('ground truth states: ', ground_truth_states.shape)
+#print('ground truth states: ', ground_truth_states.shape)
+
+#this is from the imu frame to body
+R_body_IMU = np.array([[0.0, 1.0, 0.0],
+                    [-1.0, 0.0, 0.0],
+                    [0.0, 0.0, -1.0]])
 
 
 def get_sun_vector(sun_sensors):
@@ -63,14 +66,15 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
 
     #print("gyro measurements deg/s: ", gyro_measurements)
 
-    #convert to rad/s
-    gyro_measurements = gyro_measurements * np.pi/180
+    #convert to rad/s and into body coordinates
+    gyro_measurements = (R_body_IMU@gyro_measurements) * np.pi/180
 
     #print("gyro measurements rad/s: ", gyro_measurements)
 
-    mag_measurements = sensor_message.mag_measurement
+    #get the magnetoemter measurements in the body frame
+    mag_measurements = R_body_IMU@sensor_message.mag_measurement
 
-    #normalize the magnetometer measurement
+    #normalize the magnetometer measurement. in the body frame. true body measurement
     mag_vector = mag_measurements/np.linalg.norm(mag_measurements)
 
     #unnormalized lux measurements
@@ -81,6 +85,7 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
     #normalized in the function
     sun_vector = get_sun_vector(sun_measurements)
 
+    #lux measurements stacked with the magnetometer measurements
     all_raw_measurements = np.hstack((sun_measurements, mag_measurements))
 
     #print("this is sun vector: ", sun_vector)
@@ -94,17 +99,20 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
 
     #inertial vectors #this would be from the kalman predictions as well as updates
      
-    #this is the true measurements
+    #this is the true measurements (body vectors)
     state_measurement_body = np.hstack([[sun_vector], [mag_vector]])
 
     state_measurement_body = state_measurement_body.T[:,0]
 
-    #print("state measurement body: ", state_measurement_body)
+    print("state measurement body: ", state_measurement_body)
 
     if prev_epoch is None and prev_spacecraft_time is None:
         #initialize at an arbitrary attitude
         orbit_mekf.initialize_state()
-        orbit_mekf.u = gyro_measurements
+
+        #need to convert the gyro measurements to rad/s
+        orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+
         current_epoch = measurement_epoch
         current_spacecraft_time = sensor_message.spacecraft_time
 
@@ -112,18 +120,25 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
         current_spacecraft_time = sensor_message.spacecraft_time
         dt = abs(current_spacecraft_time - prev_spacecraft_time)
 
+        #print("this is dt: ", dt)
         #avoid hard coding dt because dt can be variable...
         current_epoch = prev_epoch + dt
-
+        
+        #print("this is current epoch: ", current_epoch)
         sun_vector_inertial = brahe.sun_position(current_epoch)
         
         #50 because that is every 5 seconds in the ground truth states array. This is because that was sampled with a dt of 0.1 s
-        mag_vector_inertial = inertial_models.IGRF13(ground_truth_states[count*50,0:3], current_epoch)
+        mag_vector_inertial = inertial_models.IGRF13(ground_truth_states[count*50,0:3], current_epoch)*1e6 #converted to uT 
 
+        #print("mag vector inertial: ", mag_vector_inertial)
         #pass in not normalized. The measurement function takes care of it
         inertial_measurement = np.hstack((sun_vector_inertial, mag_vector_inertial))
 
-        orbit_mekf.u = gyro_measurements
+        #print("inertial measurement: ", inertial_measurement)
+        #need to convert the gyro measurements to rad/s and into body coordinates
+        orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+
+        #print("this is gyro measurement: ", orbit_mekf.u)
         orbit_mekf.update(all_raw_measurements, state_measurement_body, inertial_measurement, dt)
 
     return current_epoch, current_spacecraft_time
@@ -175,10 +190,10 @@ def main(batch_gps_sensor_data_filepath):
 
         packet_count += 1
 
-    
     print("Batch attitude estimation completed")
 
-
+    #print size of all estimates
+    print("all estimates shape: ", all_estimates.shape)
     #print size of ground truth states
     print("ground truth states shape: ", ground_truth_states.shape)
 
@@ -186,26 +201,44 @@ def main(batch_gps_sensor_data_filepath):
     #There are 36600 measurements in the total ground truth states. The dt of the ground truth simulation 
     #is 0.1, so there is about 1 hour of data. 
 
+    #t = np.linspace(0,ground_truth_states.shape[0], num=ground_truth_states.shape[0]) 
+
+    indices = np.arange(0,ground_truth_states.shape[0], step=50)
+
     print("Final state estimate:")
     print(f"\t{orbit_mekf.x}")
     print(f"Final std dev:")
     print(f"\t{np.diag(orbit_mekf.P)}")
+
+
+    #ground truth mag bias and gyro bias
+    mag_bias_truth = np.array([15.16648, 12.85475, -36.121958])
+
+    #this is in degrees/second
+    gyro_bias_truth = np.array([1.59531306, -0.61455357, 0.30912115])
+
+    #convert to rad/s
+    gyro_bias_truth = gyro_bias_truth*np.pi/180
+
+    print("ground truth sampled size: ", ground_truth_states[indices,6:].shape)
+
+    t_size =ground_truth_states[indices,6:].shape[0]
 
     #Plotting the code for testing 
     #plot the quaternion estimates as subplots
     fig, axs = plt.subplots(4)
     fig.suptitle('Quaternion Estimates')
     axs[0].plot(all_estimates[0,:])
-    #axs[0].plot(ground_truth_states[:,6])
+    axs[0].plot(ground_truth_states[indices,6])
     axs[0].set_title('q1')
     axs[1].plot(all_estimates[1,:])
-    #axs[1].plot(ground_truth_states[:,7])
+    axs[1].plot(ground_truth_states[indices,7])
     axs[1].set_title('q2')
     axs[2].plot(all_estimates[2,:])
-    #axs[2].plot(ground_truth_states[:,8])
+    axs[2].plot(ground_truth_states[indices,8])
     axs[2].set_title('q3')
     axs[3].plot(all_estimates[3,:])
-    #axs[3].plot(ground_truth_states[:,9])
+    axs[3].plot(ground_truth_states[indices,9])
     axs[3].set_title('q4')
 
     #Get the ground truth for the gyro bias of that scenerio
@@ -213,10 +246,13 @@ def main(batch_gps_sensor_data_filepath):
     fig2, axs = plt.subplots(3)
     fig2.suptitle('Gyro Bias Estimates')
     axs[0].plot(all_estimates[4,:])
+    axs[0].plot(gyro_bias_truth[0]*np.ones(t_size))
     axs[0].set_title('x bias')
     axs[1].plot(all_estimates[5,:])
+    axs[1].plot(gyro_bias_truth[1]*np.ones(t_size))
     axs[1].set_title('y bias')
     axs[2].plot(all_estimates[6,:])
+    axs[2].plot(gyro_bias_truth[2]*np.ones(t_size))
     axs[2].set_title('z bias')
 
     #Get the ground truth for the gyro bias of that scenerio
@@ -224,15 +260,18 @@ def main(batch_gps_sensor_data_filepath):
     fig3, axs = plt.subplots(3)
     fig3.suptitle('Magnetometer Bias Estimates')
     axs[0].plot(all_estimates[7,:])
+    axs[0].plot(mag_bias_truth[0]*np.ones(t_size))
     axs[0].set_title('x bias')
     axs[1].plot(all_estimates[8,:])
+    axs[1].plot(mag_bias_truth[1]*np.ones(t_size))
     axs[1].set_title('y bias')
     axs[2].plot(all_estimates[9,:])
+    axs[2].plot(mag_bias_truth[2]*np.ones(t_size))
     axs[2].set_title('z bias')
 
 
     #show the plot
-    plt.show()
+    #plt.show()
 
     #save the plot as a png
     fig.savefig('state_estimates.png')

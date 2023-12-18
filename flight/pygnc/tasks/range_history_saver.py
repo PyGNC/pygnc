@@ -20,6 +20,6 @@ if __name__ == "__main__":
     output_file = 'sparse_measurements.bin'
 
     # Replace 100 and 5 with your desired values for D and S
-    D = 12  # Number of bytes to read and save
+    D = 120  # Number of bytes to read and save
     S = 30   # Save every S instances
     read_and_save(input_file, output_file, D, S)

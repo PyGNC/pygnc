@@ -10,6 +10,8 @@ import numpy as np
 
 
 class MsgpackMessage:
+    port = None  # unique port number used by ZeroMQ
+
     def to_msgpack_b(self):
         # requires child class to have implemented self.as_tuple
         return msgpack.packb(self.as_tuple)
@@ -23,6 +25,8 @@ class MsgpackMessage:
 
 
 class SensorMessage(MsgpackMessage):
+    port = None  # unique port number used by ZeroMQ
+
     def __init__(
         self,
         spacecraft_time=np.nan,
@@ -84,6 +88,8 @@ class SensorMessage(MsgpackMessage):
 
 
 class GPSMessage(MsgpackMessage):
+    port = None  # unique port number used by ZeroMQ
+
     def __init__(
         self,
         spacecraft_time=np.nan,
@@ -232,7 +238,51 @@ class GPSMessage(MsgpackMessage):
         return self._sats_in_solution
 
 
+class SensorGPSMessage(MsgpackMessage):
+    port = 5560  # unique port number used by ZeroMQ
+
+    def __init__(
+        self,
+        sensor_message: SensorMessage = SensorMessage(),
+        gps_message: GPSMessage = GPSMessage(),
+        msgpack_b=None,
+    ):
+        super().__init__()
+        if msgpack_b is not None:
+            # initialize from msgpack data and ignore other entries
+            super()._from_msgpack_b(msgpack_b)
+        else:
+            self._sensor_message = sensor_message
+            self._gps_message = gps_message
+
+    @property
+    def as_tuple(self):
+        return (
+            self._sensor_message.as_tuple,
+            self._gps_message.as_tuple,
+        )
+
+    def _from_tuple(self, tup):
+        (
+            sensor_message_tup,
+            gps_message_tup,
+        ) = tup
+        self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
+        self._gps_message = GPSMessage()._from_tuple(gps_message_tup)
+        return self
+
+    @property
+    def sensor_message(self):
+        return self._sensor_message
+
+    @property
+    def gps_message(self):
+        return self._gps_message
+
+
 class OrbitEstimateMessage(MsgpackMessage):
+    port = 5561  # unique port number used by ZeroMQ
+
     def __init__(
         self,
         epoch=brahe.epoch.Epoch("1000-01-01T00:00:00Z"),
@@ -302,3 +352,19 @@ class OrbitEstimateMessage(MsgpackMessage):
     @property
     def sensor_message(self):
         return self._sensor_message
+
+
+def _get_message_dict():
+    """_get_message_dict()
+    This bit of magic produces a dictionary that allows us to associate message class names with their types
+    """
+    all_classes = globals().values()
+    message_dict = {
+        f"{cls.__name__}": cls
+        for cls in all_classes
+        if isinstance(cls, type) and issubclass(cls, MsgpackMessage)
+    }
+    return message_dict
+
+
+message_dict = _get_message_dict()

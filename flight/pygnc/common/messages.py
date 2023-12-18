@@ -10,7 +10,6 @@ import numpy as np
 
 
 class MsgpackMessage:
-    port = None  # unique port number used by ZeroMQ
 
     def to_msgpack_b(self):
         # requires child class to have implemented self.as_tuple
@@ -25,7 +24,6 @@ class MsgpackMessage:
 
 
 class SensorMessage(MsgpackMessage):
-    port = None  # unique port number used by ZeroMQ
 
     def __init__(
         self,
@@ -88,7 +86,6 @@ class SensorMessage(MsgpackMessage):
 
 
 class GPSMessage(MsgpackMessage):
-    port = None  # unique port number used by ZeroMQ
 
     def __init__(
         self,
@@ -239,7 +236,6 @@ class GPSMessage(MsgpackMessage):
 
 
 class SensorGPSMessage(MsgpackMessage):
-    port = 5560  # unique port number used by ZeroMQ
 
     def __init__(
         self,
@@ -281,7 +277,6 @@ class SensorGPSMessage(MsgpackMessage):
 
 
 class OrbitEstimateMessage(MsgpackMessage):
-    port = 5561  # unique port number used by ZeroMQ
 
     def __init__(
         self,

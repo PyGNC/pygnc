@@ -5,6 +5,7 @@ import unittest
 from .. import context
 from pygnc.common import messages  # type: ignore
 
+
 def verify_empty_sensor_message(test_case, sm):
     assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
     assertNP = lambda x: test_case.assertTrue(isinstance(x, np.ndarray))
@@ -25,11 +26,11 @@ def verify_empty_sensor_message(test_case, sm):
 
     test_case.assertEqual(len(sm.as_tuple), 5)
 
+
 class TestSensorMessage(unittest.TestCase):
     def test_empty(self):
         sm = messages.SensorMessage()
         verify_empty_sensor_message(self, sm)
-
 
     def test_empty_msgpack(self):
         sm = messages.SensorMessage()
@@ -87,6 +88,7 @@ class TestSensorMessage(unittest.TestCase):
         np.testing.assert_almost_equal(sc_time, sm2.spacecraft_time)
         np.testing.assert_almost_equal(raw_hall, sm2.raw_hall)
 
+
 def verify_empty_gps_message(test_case, gm):
     assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
     assertNP = lambda x: test_case.assertTrue(isinstance(x, np.ndarray))
@@ -119,11 +121,11 @@ def verify_empty_gps_message(test_case, gm):
 
     test_case.assertEqual(len(gm.as_tuple), 15)
 
+
 class TestGPSMessage(unittest.TestCase):
     def test_empty(self):
         gm = messages.GPSMessage()
         verify_empty_gps_message(self, gm)
-
 
     def test_empty_msgpack(self):
         gm = messages.GPSMessage()
@@ -133,6 +135,7 @@ class TestGPSMessage(unittest.TestCase):
         gm2 = messages.GPSMessage(msgpack_b=b)
 
         verify_empty_gps_message(self, gm2)
+
 
 def verify_empty_orbit_estimate_message(test_case, oem):
     assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
@@ -157,7 +160,7 @@ def verify_empty_orbit_estimate_message(test_case, oem):
 
     oem_tup = oem.as_tuple
     test_case.assertEqual(len(oem_tup), 6)
-    test_case.assertTrue(isinstance(oem_tup[0], str)) # epoch as iso string
+    test_case.assertTrue(isinstance(oem_tup[0], str))  # epoch as iso string
 
     sm_test = TestSensorMessage()
     verify_empty_sensor_message(sm_test, oem.sensor_message)

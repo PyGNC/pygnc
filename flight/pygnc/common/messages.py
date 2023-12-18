@@ -21,6 +21,7 @@ class MsgpackMessage:
     def __repr__(self):
         return f"{self.__class__.__name__}: {self.as_tuple}"
 
+
 class SensorMessage(MsgpackMessage):
     def __init__(
         self,

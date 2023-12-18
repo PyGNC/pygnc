@@ -23,9 +23,10 @@ class zmqMessagePublisher:
     port: the port number to start this publisher on.
     """
 
-    def __init__(self, message_type):
-        self.message_type == message_type
-        port = message_port_dict[message_type.__name__]
+    def __init__(self, message_type, port=None):
+        self.message_type = message_type
+        if port is None:
+            port = message_port_dict[message_type.__name__]
         self.context = zmq.Context()
         self.publisher = self.context.socket(zmq.PUB)
         self.publisher.bind(f"tcp://*:{port}")
@@ -46,7 +47,9 @@ class zmqMessageSubscriber:
     return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned
     """
 
-    def __init__(self, message_type: messages.MsgpackMessage, return_latest=True):
+    def __init__(
+        self, message_type: messages.MsgpackMessage, port=None, return_latest=True
+    ):
         self.context = zmq.Context()
         self.subscriber = self.context.socket(zmq.SUB)
 
@@ -56,7 +59,8 @@ class zmqMessageSubscriber:
 
         self.message_filter = _message_to_filter(message_type)
         self.message_type = message_type
-        port = message_port_dict[message_type.__name__]
+        if port is None:
+            port = message_port_dict[message_type.__name__]
 
         self.subscriber.setsockopt_string(
             zmq.SUBSCRIBE, ""

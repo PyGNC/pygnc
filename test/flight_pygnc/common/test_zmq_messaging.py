@@ -15,9 +15,9 @@ from .test_messages import (
 
 class TestZMQMessaging(unittest.TestCase):
     def test_empty_sensor_message(self):
-        port = 5560
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
+        port = 6660
+        pub = zmq_messaging.zmqMessagePublisher(messages.SensorMessage, port=port)
+        sub = zmq_messaging.zmqMessageSubscriber(messages.SensorMessage, port=port)
 
         in_message = messages.SensorMessage()
         for _ in range(100):
@@ -35,9 +35,9 @@ class TestZMQMessaging(unittest.TestCase):
         del sub
 
     def test_empty_gps_message(self):
-        port = 5561
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, messages.GPSMessage)
+        port = 6661
+        pub = zmq_messaging.zmqMessagePublisher(messages.GPSMessage, port=port)
+        sub = zmq_messaging.zmqMessageSubscriber(messages.GPSMessage, port=port)
 
         in_message = messages.GPSMessage()
         for _ in range(100):
@@ -55,9 +55,13 @@ class TestZMQMessaging(unittest.TestCase):
         del sub
 
     def test_empty_orbit_estimate_message(self):
-        port = 5562
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, messages.OrbitEstimateMessage)
+        port = None # look up port using message type
+        pub = zmq_messaging.zmqMessagePublisher(
+            messages.OrbitEstimateMessage, port=port
+        )
+        sub = zmq_messaging.zmqMessageSubscriber(
+            messages.OrbitEstimateMessage, port=port
+        )
 
         in_message = messages.OrbitEstimateMessage()
         for _ in range(100):
@@ -75,9 +79,9 @@ class TestZMQMessaging(unittest.TestCase):
         del sub
 
     def test_invalid_message(self):
-        port = 5563
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
+        port = 6663
+        pub = zmq_messaging.zmqMessagePublisher(messages.SensorMessage, port=port)
+        sub = zmq_messaging.zmqMessageSubscriber(messages.SensorMessage, port=port)
 
         in_message = messages.GPSMessage()
         for _ in range(100):
@@ -94,9 +98,9 @@ class TestZMQMessaging(unittest.TestCase):
         del sub
 
     def test_single_message(self):
-        port = 5664
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
+        port = 6664
+        pub = zmq_messaging.zmqMessagePublisher(messages.SensorMessage, port=port)
+        sub = zmq_messaging.zmqMessageSubscriber(messages.SensorMessage, port=port)
 
         spacecraft_time = 123456789e5
         mag_measurement = (100.0, 200.0, -300.3)

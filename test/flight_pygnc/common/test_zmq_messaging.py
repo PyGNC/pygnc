@@ -12,12 +12,12 @@ class TestZMQMessaging(unittest.TestCase):
     def test_empty_sensor_message(self):
         port = 5560
         pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.SensorMessage])
+        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
 
         in_message = messages.SensorMessage()
         for _ in range(100):
             pub.send(in_message)
-            out_message = sub.recieve(block=False)
+            out_message = sub.receive(block=False)
             if out_message is not None:
                 break
             time.sleep(0.001)
@@ -32,12 +32,12 @@ class TestZMQMessaging(unittest.TestCase):
     def test_empty_gps_message(self):
         port = 5561
         pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.GPSMessage])
+        sub = zmq_messaging.zmqMessageSubscriber(port, messages.GPSMessage)
 
         in_message = messages.GPSMessage()
         for _ in range(100):
             pub.send(in_message)
-            out_message = sub.recieve(block=False)
+            out_message = sub.receive(block=False)
             if out_message is not None:
                 break
             time.sleep(0.001)
@@ -52,12 +52,12 @@ class TestZMQMessaging(unittest.TestCase):
     def test_empty_orbit_estimate_message(self):
         port = 5562
         pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.OrbitEstimateMessage])
+        sub = zmq_messaging.zmqMessageSubscriber(port, messages.OrbitEstimateMessage)
 
         in_message = messages.OrbitEstimateMessage()
         for _ in range(100):
             pub.send(in_message)
-            out_message = sub.recieve(block=False)
+            out_message = sub.receive(block=False)
             if out_message is not None:
                 break
             time.sleep(0.001)
@@ -72,12 +72,12 @@ class TestZMQMessaging(unittest.TestCase):
     def test_invalid_message(self):
         port = 5563
         pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.SensorMessage])
+        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
 
         in_message = messages.GPSMessage()
         for _ in range(100):
             pub.send(in_message)
-            out_message = sub.recieve(block=False)
+            out_message = sub.receive(block=False)
             if out_message is not None:
                 break
             time.sleep(0.001)
@@ -91,7 +91,7 @@ class TestZMQMessaging(unittest.TestCase):
     def test_single_message(self):
         port = 5664
         pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.SensorMessage])
+        sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
 
         spacecraft_time=123456789e5
         mag_measurement = (100.0, 200.0, -300.3)
@@ -108,7 +108,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         for _ in range(100):
             pub.send(in_message)
-            out_message = sub.recieve(block=False)
+            out_message = sub.receive(block=False)
             if out_message is not None:
                 break
             time.sleep(0.001)
@@ -121,42 +121,6 @@ class TestZMQMessaging(unittest.TestCase):
         np.testing.assert_array_almost_equal(np.array(raw_hall), out_message.raw_hall)
         np.testing.assert_array_almost_equal(np.array(gyro_measurement), out_message.gyro_measurement)
         np.testing.assert_array_almost_equal(np.array(sun_sensors), out_message.sun_sensors)
-
-        del pub
-        del sub
-
-    def test_empty_multi_message(self):
-        port = 5565
-        pub = zmq_messaging.zmqMessagePublisher(port)
-        sub = zmq_messaging.zmqMessageSubscriber(port, [messages.GPSMessage,
-                                                        messages.SensorMessage,
-                                                        messages.OrbitEstimateMessage,
-                                                        ],
-                                                        return_latest=True)
-
-        in_message = messages.GPSMessage()
-        for _ in range(100):
-            pub.send(in_message)
-            time.sleep(0.002) # give time for message to propagate
-            out_message = sub.recieve(block=False)
-            if out_message is not None:
-                break
-
-        self.assertIsNotNone(out_message)
-        self.assertIsInstance(out_message, messages.GPSMessage)
-
-        in_message = messages.OrbitEstimateMessage()
-        out_message = None
-        for _ in range(100):
-            pub.send(in_message)
-            time.sleep(0.002) # give time for message to propagate
-            out_message = sub.recieve(block=False)
-            if out_message is not None:
-                break
-            time.sleep(0.002)
-
-        self.assertIsNotNone(out_message)
-        self.assertIsInstance(out_message, messages.OrbitEstimateMessage)
 
         del pub
         del sub

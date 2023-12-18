@@ -4,9 +4,14 @@ import unittest
 
 from .. import context
 from pygnc.common import messages  # type: ignore
-from pygnc.common import zmq_messaging   # type: ignore
+from pygnc.common import zmq_messaging  # type: ignore
 
-from .test_messages import verify_empty_sensor_message, verify_empty_gps_message, verify_empty_orbit_estimate_message
+from .test_messages import (
+    verify_empty_sensor_message,
+    verify_empty_gps_message,
+    verify_empty_orbit_estimate_message,
+)
+
 
 class TestZMQMessaging(unittest.TestCase):
     def test_empty_sensor_message(self):
@@ -93,11 +98,11 @@ class TestZMQMessaging(unittest.TestCase):
         pub = zmq_messaging.zmqMessagePublisher(port)
         sub = zmq_messaging.zmqMessageSubscriber(port, messages.SensorMessage)
 
-        spacecraft_time=123456789e5
+        spacecraft_time = 123456789e5
         mag_measurement = (100.0, 200.0, -300.3)
-        raw_hall=111.0
+        raw_hall = 111.0
         gyro_measurement = (1e-4, 2e6, -123.0)
-        sun_sensors=(1.0, 2.0, 3.0, 4.0, 5.0, 86000.0)
+        sun_sensors = (1.0, 2.0, 3.0, 4.0, 5.0, 86000.0)
 
         in_message = messages.SensorMessage(
             spacecraft_time=spacecraft_time,
@@ -116,11 +121,19 @@ class TestZMQMessaging(unittest.TestCase):
         self.assertIsNotNone(out_message)
         self.assertIsInstance(out_message, messages.SensorMessage)
 
-        np.testing.assert_array_almost_equal(np.array(spacecraft_time), out_message.spacecraft_time)
-        np.testing.assert_array_almost_equal(np.array(mag_measurement), out_message.mag_measurement)
+        np.testing.assert_array_almost_equal(
+            np.array(spacecraft_time), out_message.spacecraft_time
+        )
+        np.testing.assert_array_almost_equal(
+            np.array(mag_measurement), out_message.mag_measurement
+        )
         np.testing.assert_array_almost_equal(np.array(raw_hall), out_message.raw_hall)
-        np.testing.assert_array_almost_equal(np.array(gyro_measurement), out_message.gyro_measurement)
-        np.testing.assert_array_almost_equal(np.array(sun_sensors), out_message.sun_sensors)
+        np.testing.assert_array_almost_equal(
+            np.array(gyro_measurement), out_message.gyro_measurement
+        )
+        np.testing.assert_array_almost_equal(
+            np.array(sun_sensors), out_message.sun_sensors
+        )
 
         del pub
         del sub

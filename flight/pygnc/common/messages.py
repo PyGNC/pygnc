@@ -10,7 +10,6 @@ import numpy as np
 
 
 class MsgpackMessage:
-
     def to_msgpack_b(self):
         # requires child class to have implemented self.as_tuple
         return msgpack.packb(self.as_tuple)
@@ -24,7 +23,6 @@ class MsgpackMessage:
 
 
 class SensorMessage(MsgpackMessage):
-
     def __init__(
         self,
         spacecraft_time=np.nan,
@@ -86,7 +84,6 @@ class SensorMessage(MsgpackMessage):
 
 
 class GPSMessage(MsgpackMessage):
-
     def __init__(
         self,
         spacecraft_time=np.nan,
@@ -236,7 +233,6 @@ class GPSMessage(MsgpackMessage):
 
 
 class SensorGPSMessage(MsgpackMessage):
-
     def __init__(
         self,
         sensor_message: SensorMessage = SensorMessage(),
@@ -277,7 +273,6 @@ class SensorGPSMessage(MsgpackMessage):
 
 
 class OrbitEstimateMessage(MsgpackMessage):
-
     def __init__(
         self,
         epoch=brahe.epoch.Epoch("1000-01-01T00:00:00Z"),

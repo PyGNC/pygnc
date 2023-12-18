@@ -17,7 +17,7 @@ def start_processes():
     for task in task_list:
         if task["main"] is not None:
             print(f"Starting {task['name']}")
-            p = Process(target=task["main"], args=(task["port"],))
+            p = Process(target=task["main"], args=())
             task["process"] = p
         else:
             task["process"] = None

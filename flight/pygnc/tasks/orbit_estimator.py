@@ -4,6 +4,7 @@ import time
 
 
 from ..common import data_parsing, transformations, messages
+from ..common.zmq_messaging import zmqMessagePublisher 
 from ..configuration import orbit_estimator as oe_config
 from ..configuration import pygnc as pygnc_config
 from ..algorithms.OrbitEstimator import OrbitEKF
@@ -29,21 +30,27 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
 
     return measurement_epoch
 
-def send_orbit_estimate_message(measurement_epoch, orbit_ekf, sensor_message):
+
+def send_orbit_estimate_message(
+    pub: zmqMessagePublisher, measurement_epoch, orbit_ekf, sensor_message
+):
     x = orbit_ekf.x
-    F_diag = np.diag(orbit_ekf.F) 
+    F_diag = np.diag(orbit_ekf.F)
     oem = messages.OrbitEstimateMessage(
         epoch=measurement_epoch,
         state_estimate=x[0:6],
         disturbance_estimate=x[6:-1],
         state_variance=F_diag[0:6],
         disturbance_variance=F_diag[6:-1],
-        sensor_message = sensor_message,
+        sensor_message=sensor_message,
     )
-    print(f"OrbitEstimateMessage:\n {oem.as_tuple}")
+    pub.send(oem)
 
-def main(port):
+
+def main():
     print("Orbit Estimator Task")
+
+    oem_pub = zmqMessagePublisher(messages.OrbitEstimateMessage)
 
     # instantiate orbit estimator
     orbit_ekf = OrbitEKF()
@@ -58,7 +65,7 @@ def main(port):
         print(f"Packet count = {packet_count}")
         sensor_messages, gps_message = bd
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
-        send_orbit_estimate_message(prev_epoch, orbit_ekf, sensor_messages[-1])
+        send_orbit_estimate_message(oem_pub, prev_epoch, orbit_ekf, sensor_messages[-1])
         packet_count += 1
 
     print("Batch orbit estimation completed")

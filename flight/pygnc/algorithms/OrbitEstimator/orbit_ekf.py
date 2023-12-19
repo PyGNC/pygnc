@@ -166,7 +166,7 @@ class OrbitEKF(EKFCore):
 
     def update(self, y):
         """
-        EKF update step
+        EKF update step wit no prediction
         """
         # innovation step
         Z, C = self.innovation(y, self.x, self.F)

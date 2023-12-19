@@ -74,3 +74,7 @@ def main():
     print(f"\t{orbit_ekf.x}")
     print(f"Final std dev:")
     print(f"\t{np.diag(orbit_ekf.F)}")
+
+
+if __name__ == "__main__":
+    main()

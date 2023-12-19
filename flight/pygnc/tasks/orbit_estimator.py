@@ -25,7 +25,7 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
         # need to initialize ekf state with first measurement
         orbit_ekf.initialize_state(state_measurement_eci)
     else:
-        dt = prev_epoch - measurement_epoch
+        dt = measurement_epoch - prev_epoch
         orbit_ekf.update(state_measurement_eci, dt)
 
     return measurement_epoch

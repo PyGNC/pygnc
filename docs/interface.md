@@ -58,11 +58,16 @@ Each segment of GPS data is 99 bytes and consists of the following:
 | sats_tracked |1| |
 | sats_in_solution |1| |
 
-### `range.bin` file format
+### Range files
+Range files are contained in `~/range/`. The file names have the format `rng#####.bin`.
+
+`range.bin` file format
 The `range.bin` file is used to communicate range measurements.
 It consists of a GPS measurement packet followed by one or more range measurements that occurred at approximately the same time.
 Each GPS measurement packet is 102 bytes and starts with `0xaaD`. 
 Each Range packet is 12 bytes.
+
+This file is 25.6kB, and covers approximately.
 
 ## Starting PyGNC 
 To start PyGNC, use the following function call:
@@ -70,3 +75,26 @@ To start PyGNC, use the following function call:
 ```
 python pygnc_main.py <timeout_in_minutes> <spacecraft_time_in_seconds>
 ```
+
+## Logging and Status
+
+Short status with most recent state estimates (less than 1kb)
+```
+~/pygnc_status.bin
+```
+
+Very short human readable status with minimal information (less than 200 bytes)
+```
+~/pygnc_info.txt
+```
+
+### Log files
+```
+~/pygnc_logs/
+```
+
+# Streaming Interface
+
+
+# Stopping PyGNC
+A `CTRL-C` is applied to the main process, the PyCubed controller then attempts to close all of the other processes with a signal. The processes can save any last data and then close. 10 seconds is given between the `CTRL-C` and the Raspberry Pi getting shut down.

@@ -9,6 +9,6 @@
 	],
 	"settings": {
 		"julia.execution.inlineResultsForCellEvaluation": true,
-		"julia.environmentPath": "\\\\wsl.localhost\\Ubuntu-20.04\\home\\fausto\\pygnc"
+		"julia.environmentPath": "/home/fausto/pygnc"
 	}
 }

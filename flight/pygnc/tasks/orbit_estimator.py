@@ -7,6 +7,9 @@ from ..common import data_parsing, transformations
 from ..configuration import orbit_estimator as oe_config
 from ..algorithms.OrbitEstimator import OrbitEKF
 
+def predict_orbit_ekf(orbit_ekf, prev_epoch, dt=1.0):
+    orbit_ekf.predict(dt)
+
 
 def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
     # get position and velocity state from gps
@@ -24,7 +27,8 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
         orbit_ekf.initialize_state(state_measurement_eci)
     else:
         dt = measurement_epoch - prev_epoch
-        orbit_ekf.update(state_measurement_eci, dt)
+        orbit_ekf.predict(dt)
+        orbit_ekf.update(state_measurement_eci)
 
     return measurement_epoch
 

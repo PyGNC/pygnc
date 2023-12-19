@@ -179,3 +179,30 @@ class TestOrbitEstimateMessage(unittest.TestCase):
         oem2 = messages.OrbitEstimateMessage(msgpack_b=b)
 
         verify_empty_orbit_estimate_message(self, oem2)
+
+def verify_empty_sensor_gps_message(test_case, sgm):
+    test_case.assertIsInstance(sgm.sensor_message, messages.SensorMessage)
+    test_case.assertIsInstance(sgm.gps_message, messages.GPSMessage)
+
+    sgm_tup = sgm.as_tuple
+    test_case.assertEqual(len(sgm_tup), 2)
+    test_case.assertEqual(len(sgm_tup[0]), 5)
+    test_case.assertEqual(len(sgm_tup[1]), 15)
+
+    verify_empty_sensor_message(test_case, sgm.sensor_message)
+    verify_empty_gps_message(test_case, sgm.gps_message)
+
+
+class TestSensorGPSMessage(unittest.TestCase):
+    def test_empty(self):
+        sgm = messages.SensorGPSMessage()
+        verify_empty_sensor_gps_message(self, sgm)
+
+    def test_empty_msgpack(self):
+        sgm = messages.SensorGPSMessage()
+        b = sgm.to_msgpack_b()
+        self.assertIsInstance(b, bytes)
+
+        sgm2 = messages.SensorGPSMessage(msgpack_b=b)
+
+        verify_empty_sensor_gps_message(self, sgm2)

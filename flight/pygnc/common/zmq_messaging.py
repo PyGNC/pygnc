@@ -4,9 +4,11 @@ zmq_messaging.py
 Abstract away zeromq messaging to a few easy to use functions built around the MsgpackMessage type.
 
 A few architectural decisions were made here:
-    - each task has one zmqMessagePublisher that it owns.
+    - each task owns one zmqMessagePublisher for each message it publishes.
         - Each publisher has a single message that it publishes
-    - each task has one zmqMessageSubscriber that it owns
+    - each task has one zmqMessageSubscriber per message that it subscribes to
+        - zmqMessageSubscriber.receive() can be blocking or non-blocking. Blocking allows tasks to
+          be event based and run when they receive data.
 """
 
 from . import messages
@@ -20,7 +22,10 @@ def _message_to_filter(message):
 
 class zmqMessagePublisher:
     """zmqMessagePublisher
-    port: the port number to start this publisher on.
+    message_type: the type of message (inherits from MsgpackMessage) this publishes.
+        The port is determined from this message unless explicitly specified with the port argument.
+        Ports should always be determined from the message (via message_port_dict).
+        The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
     """
 
     def __init__(self, message_type, port=None):
@@ -43,8 +48,12 @@ class zmqMessagePublisher:
 class zmqMessageSubscriber:
     """
     message_type: a message type that inherits from MsgpackMessage
-        this is the messages that the listener will subscribe to
-    return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned
+        The port is determined from this message unless explicitly specified with the port argument.
+        Ports should always be determined from the message (via message_port_dict).
+        The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
+    return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned. 
+        For a real time GNC system this is typically what we want.
+        For a batch estimator it is better for it to be false and for the messages to queue.
     """
 
     def __init__(

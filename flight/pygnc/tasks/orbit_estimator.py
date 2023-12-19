@@ -7,7 +7,7 @@ from ..common import data_parsing, transformations
 from ..configuration import orbit_estimator as oe_config
 from ..algorithms.OrbitEstimator import OrbitEKF
 
-def predict_orbit_ekf(orbit_ekf, prev_epoch, dt=1.0):
+def predict_orbit_ekf(orbit_ekf, prev_epoch, dt=5.0):
     orbit_ekf.predict(dt)
     new_epoch = prev_epoch + dt # addition of seconds is defined in brahe
     return new_epoch
@@ -50,7 +50,7 @@ def main(batch_gps_sensor_data_filepath):
     # Every 25 sec, we process the measurement packet with an EKF update
     packet_count = 0
     prev_epoch = None
-    dt_measurement = 25
+    in_prediction = 5
 
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
@@ -58,9 +58,9 @@ def main(batch_gps_sensor_data_filepath):
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
         packet_count += 1
 
-        for i in range(dt_measurement-1):
+        for i in range(in_prediction-1):
             prev_epoch = predict_orbit_ekf(orbit_ekf, prev_epoch)
-        print(prev_epoch)
+        #print(prev_epoch)
 
     print("Batch orbit estimation completed")
 

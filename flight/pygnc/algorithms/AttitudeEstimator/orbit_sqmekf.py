@@ -132,6 +132,7 @@ class OrbitSQMEKF(SQMEKFCore):
 
             C = np.block([[dy_sun_dphi, np.zeros((3,6))], [dy_mag_dphi, np.zeros((3,3)), dy_mag_dmb]])
 
+            print("RANK OF C: ", np.linalg.matrix_rank(C))
             #print("this is C: ", C)
             #print("this is C_old: ", C_old)
             #b_measurement_biased = b_measurement + magnetometer_bias
@@ -181,11 +182,19 @@ class OrbitSQMEKF(SQMEKFCore):
 
         #from tutorial
         dt = 5
+        # term1 = (0.025*math.pi/180)**2 * dt
+        # term1_1 = (3*math.pi/180)**2 * (dt**3)/3
+        # term1_2 = (3*math.pi/180)**2 * (dt**2)/2
+        # term2_2 = (3*math.pi/180)**2 * dt
+        # #should be 40
+        # term3_3 = (40**2) * dt
+
+        #tuning
         term1 = (0.025*math.pi/180)**2 * dt
+        #having 1 and 40 here gets the symmetrical plot when the ground truth is plotted inversely
         term1_1 = (3*math.pi/180)**2 * (dt**3)/3
         term1_2 = (3*math.pi/180)**2 * (dt**2)/2
         term2_2 = (3*math.pi/180)**2 * dt
-
         #should be 40
         term3_3 = (40**2) * dt
 
@@ -193,7 +202,7 @@ class OrbitSQMEKF(SQMEKFCore):
         Q_noise[0:3, 3:6] = np.identity(3)*(term1_2)
         Q_noise[3:6, 0:3] = np.identity(3)*(term1_2)
 
-
+        Q_noise = Q_noise #increase process noise
         #Q_noise = np.hstack((np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3, np.identity(3)*3**2 * (5**2)/2)))
 
         #Q_noise = block_diag(np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3), np.identity(3)*(3*math.pi/180)**2*(5), np.identity(3)*(40**2)*(5))
@@ -205,7 +214,9 @@ class OrbitSQMEKF(SQMEKFCore):
         #trying out new Q
         #Q_noise = block_diag(np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(0.1*math.pi/180)**2, np.identity(3)*(5)**2)
         #initial covariance 
-        #P_0 = np.identity(9)*1e-1
+
+    
+        #P_0 = np.identity(9)
         #Initialize with Q_noise
         P_0 = Q_noise
 

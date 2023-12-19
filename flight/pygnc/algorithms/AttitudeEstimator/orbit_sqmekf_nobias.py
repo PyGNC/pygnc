@@ -1,7 +1,7 @@
 import autograd.numpy as np
 from scipy.linalg import block_diag
 import math
-from .sqmekf_core import SQMEKFCore
+from .sqmekf_core_nobias import SQMEKFCore_nb
 from .mekf_utils import *
 
 from scipy.linalg import sqrtm
@@ -35,7 +35,7 @@ def process_dynamics(x, u, h):
 
     return x_next
 
-class OrbitSQMEKF(SQMEKFCore):
+class OrbitSQMEKF_nb(SQMEKFCore_nb):
     """
     Defines the EKF for the orbit determination problem
     """
@@ -73,9 +73,9 @@ class OrbitSQMEKF(SQMEKFCore):
             #b_measurement = inertial_measurement[0:3][:,np.newaxis]
             #sun_measurement = inertial_measurement[3:][:,np.newaxis]
 
-            sun_measurement = inertial_measurement[0:3][:,np.newaxis]
+            sun_measurement = inertial_measurement[0:3] #[:,np.newaxis]
 
-            b_measurement = inertial_measurement[3:][:,np.newaxis]
+            b_measurement = inertial_measurement[3:] #[:,np.newaxis]
 
             #b_measurement = inertial_measurement[3:][:,np.newaxis]
 
@@ -90,27 +90,27 @@ class OrbitSQMEKF(SQMEKFCore):
             #normalized predictions. This is what we use in the measurement model. 
             sun_predicted_n = Q_N_B @ (sun_measurement/np.linalg.norm(sun_measurement))
 
-            mag_predicted_n = (Q_N_B@b_measurement+magnetometer_bias)/np.linalg.norm((Q_N_B@b_measurement+magnetometer_bias))
+            mag_predicted_n = (Q_N_B@b_measurement)/np.linalg.norm((Q_N_B@b_measurement))
 
-            predicted_measurement = np.vstack((sun_predicted_n, mag_predicted_n))
+            predicted_measurement = np.hstack((sun_predicted_n, mag_predicted_n))
             
             #Find C -> dh/dx
             #3x3 matrices 
             #the backslash is just to start a new line in the equation
 
             #NEW REVISED JACOBIANS (working)
-            dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
-                        ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
-                        @Q_N_B.T@(2*hat(np.squeeze(sun_predicted))))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
+            # dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
+            #             ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
+            #             @Q_N_B.T@(2*hat(np.squeeze(sun_predicted))))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
 
-            #3x3 matrices
-            dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*hat(np.squeeze(mag_predicted)) -\
-                        ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
-                        @(Q_N_B@b_measurement + magnetometer_bias).T @ (2*hat(np.squeeze(mag_predicted))))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+            # #3x3 matrices
+            # dy_mag_dphi = (2*np.linalg.norm(Q_N_B@b_measurement)*hat(np.squeeze(mag_predicted)) -\
+            #             ((Q_N_B@b_measurement)/(np.linalg.norm(Q_N_B@b_measurement)))\
+            #             @(Q_N_B@b_measurement).T @ (2*hat(np.squeeze(mag_predicted))))/(np.linalg.norm(Q_N_B@b_measurement)**2)
 
-            dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*np.eye(3) -\
-                        ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
-                        @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
+            #dy_mag_dmb = (np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)*np.eye(3) -\
+            #            ((Q_N_B@b_measurement + magnetometer_bias)/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)))\
+            #            @ (Q_N_B@b_measurement + magnetometer_bias).T @ np.eye(3))/(np.linalg.norm(Q_N_B@b_measurement + magnetometer_bias)**2)
 
             #OLD (has bugs)
             # dy_sun_dphi_old = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
@@ -128,8 +128,12 @@ class OrbitSQMEKF(SQMEKFCore):
 
             # C_old = np.block([[dy_sun_dphi_old, np.zeros((3,6))], [dy_mag_dphi_old, np.zeros((3,3)), dy_mag_dmb_old]])
 
-            C = np.block([[dy_sun_dphi, np.zeros((3,6))], [dy_mag_dphi, np.zeros((3,3)), dy_mag_dmb]])
+            #C = np.block([[dy_sun_dphi, np.zeros((3,3))], [dy_mag_dphi, np.zeros((3,3))]])
 
+            C = np.block([[2*hat(sun_predicted_n), np.zeros((3,3))], [2*hat(mag_predicted_n), np.zeros((3,3))]])
+
+
+            #print("RANK of C: ", np.linalg.matrix_rank(C))
             #print("this is C: ", C)
             #print("this is C_old: ", C_old)
             #b_measurement_biased = b_measurement + magnetometer_bias
@@ -173,23 +177,33 @@ class OrbitSQMEKF(SQMEKFCore):
         #from the noise
         #Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(40**2))
 
-        #Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(300**2))
+        #Q_noise = 5*block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(0.03*math.pi/180)**2)*2
 
         #testing from derivation. the 5 is the dt
 
         #from tutorial
         dt = 5
         term1 = (0.025*math.pi/180)**2 * dt
-        term1_1 = (3*math.pi/180)**2 * (dt**3)/3
-        term1_2 = (3*math.pi/180)**2 * (dt**2)/2
-        term2_2 = (3*math.pi/180)**2 * dt
+        #term1 = (0.25*math.pi/180)**2 * dt
+        term1_1 = (0.3*math.pi/180)**2 * (dt**3)/3
+        term1_2 = (0.3*math.pi/180)**2 * (dt**2)/2
+        term2_2 = (0.3*math.pi/180)**2 * dt
+
+        #testing
+        #term1_1 = (1*math.pi/180)**2 * (dt**3)/3
+        #term1_2 = (1*math.pi/180)**2 * (dt**2)/2
+        #term2_2 = (1*math.pi/180)**2 * dt
 
         #should be 40
-        term3_3 = (40**2) * dt
+        #term3_3 = (40**2) * dt
 
-        Q_noise = block_diag(np.identity(3)*(term1 + term1_1), np.identity(3)*(term2_2), np.identity(3)*(term3_3))
+        
+        #Q_noise = block_diag(np.identity(3)*(term1 + term1_1), np.identity(3)*(term2_2), np.identity(3)*(term3_3))
+        Q_noise = block_diag(np.identity(3)*(term1 + term1_1), np.identity(3)*(term2_2))
         Q_noise[0:3, 3:6] = np.identity(3)*(term1_2)
         Q_noise[3:6, 0:3] = np.identity(3)*(term1_2)
+
+        print("THIS IS Q NOISE: ", Q_noise)
 
 
         #Q_noise = np.hstack((np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3, np.identity(3)*3**2 * (5**2)/2)))
@@ -235,6 +249,6 @@ class OrbitSQMEKF(SQMEKFCore):
         #b0 = np.array([0.05,0.05,0.05]) #this is in rad/s
         b0 = np.array([1,1,1])*math.pi/180  #this is in rad/s
         #mb0 = np.array([0.001,0.001,0.001])
-        mb0 = np.array([20,10,-25]) #this is in uT
-        x0 = np.hstack((q0,b0, mb0))
+        #mb0 = np.array([20,10,-25]) #this is in uT
+        x0 = np.hstack((q0,b0))
         super().initialize_state(x0)

@@ -20,7 +20,7 @@ end
 
 function simulate_scenario(;
     #1 is the hour
-    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
+    batch_length_s::Int=3 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
     sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
@@ -187,7 +187,7 @@ end
 
 function generate_scenario(
     scenario_directory_path::AbstractString;
-    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
+    batch_length_s::Int=3 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
     sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
@@ -231,17 +231,19 @@ end
 state_hist, time_hist, measurement_history = simulate_scenario()
 
 #save the state history using DelimitedFiles
-writedlm("state_history.txt", state_hist, ',')
-writedlm("time_hist.txt", time_hist, ',')
-writedlm("measurement_hist.txt", measurement_history, ',')
+writedlm("state_history_long.txt", state_hist, ',')
+writedlm("time_hist_long.txt", time_hist, ',')
+writedlm("measurement_hist_long.txt", measurement_history, ',')
 
 
 
 measurements_to_batch_file(
     measurement_history,
-    1 * 60 * 60, # number of seconds of sensor data to provide
+    #changed from 1 to 3
+    3 * 60 * 60, # number of seconds of sensor data to provide
     25, # batch sample period for gps measurements
     5, # batch sample period for other sensor data
     #joinpath("..", "scenarios", "default_scenario"),
-    joinpath("..", "scenarios", "new_default_scenario"),
+    #joinpath("..", "scenarios", "new_default_scenario"),
+    joinpath("..", "scenarios", "new_default_scenario_long"),
 )

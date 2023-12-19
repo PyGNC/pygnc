@@ -19,7 +19,7 @@ from .mekf_utils import *
 
 #values of C are really small. may be worth implementing the square root version of the MEKF
 
-class SQMEKFCore:
+class SQMEKFCore_nb:
     # constructor
     #def __init__(self, P0, dynamics, gyro_m, measure, R, Q) -> None:
     def __init__(self, F0, dynamics, gyro_m, measure, Q) -> None:
@@ -65,18 +65,20 @@ class SQMEKFCore:
         #R_mag = np.eye(3)*(40.6)**2
 
         #standard deviation of magnetometer from models.jl
-        R_mag = np.eye(3)*(0.6)**2
+        #0.6 from magnetometer measurement
+        #40 from the bias
+        R_mag = np.eye(3)*(40.6)**2
 
         #standard deviation of magnetometer bias from models.jl. in uT
-        R_mb = np.eye(3)*(40)**2
+        #R_mb = np.eye(3)*(40)**2
 
-        R_total = block_diag(R_mag, R_mb)
+        #R_total = block_diag(R_mag, R_mb)
 
         A_mag = (np.linalg.norm(mag)*np.eye(3) - (mag/np.linalg.norm(mag))@mag.T)/(np.linalg.norm(mag)**2)
 
-        A_total = np.hstack((A_mag, A_mag))
-
-        R_mag_vec = A_total@R_total@A_total.T
+        #A_total = np.hstack((A_mag, A_mag))
+        R_mag_vec = A_mag@R_mag@A_mag.T
+        #R_mag_vec = A_total@R_total@A_total.T
 
         #measurement noise on inertial vectors
         R_noise = block_diag(R_sun_vec, R_mag_vec)
@@ -147,15 +149,17 @@ class SQMEKFCore:
         #jacobian for the quaternion, gyro bias, and magnetometer bias
         Ak11 = H.T@L(qk1[0:4]).T@L(qk[0:4])@R(deltaq)@H
         Ak12 = -0.5*h*np.identity(3)
-        Ak13 = np.zeros((3,3))
+        #Ak13 = np.zeros((3,3))
         Ak21 = np.zeros((3,3))
         Ak22 = np.identity(3)
-        Ak23 = np.zeros((3,3))
-        Ak31 = np.zeros((3,3))
-        Ak32 = np.zeros((3,3))
-        Ak33 = np.identity(3)
+        #Ak23 = np.zeros((3,3))
+        #Ak31 = np.zeros((3,3))
+        #Ak32 = np.zeros((3,3))
+        #Ak33 = np.identity(3)
 
-        Ak = np.block([[Ak11, Ak12, Ak13],[Ak21, Ak22, Ak23],[Ak31, Ak32, Ak33]])
+        #Ak = np.block([[Ak11, Ak12, Ak13],[Ak21, Ak22, Ak23],[Ak31, Ak32, Ak33]])
+
+        Ak = np.block([[Ak11, Ak12],[Ak21, Ak22]])
 
         #print("this is A11", Ak11)
         #print("this is A: ", Ak)
@@ -218,10 +222,9 @@ class SQMEKFCore:
         """
 
         #R = self.get_R(all_raw_measurements)
-        R = self.get_R_notworking(all_raw_measurements)
+        #R = self.get_R_notworking(all_raw_measurements)
 
-        #biases kinda converging
-        #R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
+        R = block_diag(np.identity(3)*(1*math.pi/180)**2, np.identity(3)*(1*math.pi/180)**2)
 
         sqrt_R = sqrtm(R)
 
@@ -282,20 +285,20 @@ class SQMEKFCore:
         self.x[4:7] = x_predicted[4:7] + delta[3:6]
 
         #update the magnetometer bias
-        self.x[7:] = x_predicted[7:] + delta[6:]
+        #self.x[7:] = x_predicted[7:] + delta[6:]
 
         #get R
         #R = self.get_R(all_raw_measurements)
-        R = self.get_R_notworking(all_raw_measurements)
+        #R = self.get_R_notworking(all_raw_measurements)
 
         #biases kinda converging
-        #R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
+        R = block_diag(np.identity(3)*(1*math.pi/180)**2, np.identity(3)*(1*math.pi/180)**2)
 
         sqrt_R = sqrtm(R)
         #update the covariance
         #self.F = (np.identity(9) - L_@C)@F_predicted@(np.identity(9) - L_@C).T + L_@R@L_.T
 
-        e = np.real(np.vstack((F_predicted @ (np.identity(9) - L_ @ C).T, sqrt_R @ L_.T)))
+        e = np.real(np.vstack((F_predicted @ (np.identity(6) - L_ @ C).T, sqrt_R @ L_.T)))
 
         # update the square root covariance
         _, self.F = qr(e, mode="economic")

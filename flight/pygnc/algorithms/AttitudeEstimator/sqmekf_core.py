@@ -198,6 +198,10 @@ class SQMEKFCore:
         #pass in predicted and an inertial measurement 
         predicted_body_measurement, C = self.g(x_predicted, inertial_measurement)
 
+        print("this is body measurement: ", body_measurement)
+
+        print("this is predicted body measurement", predicted_body_measurement)
+        
         # innovation
         #true body measurement  - predicted body measurement
         Z = body_measurement[:,np.newaxis] - predicted_body_measurement

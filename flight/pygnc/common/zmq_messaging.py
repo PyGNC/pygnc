@@ -12,12 +12,18 @@ A few architectural decisions were made here:
 """
 
 from . import messages
-from ..configuration.messages import message_port_dict
+from ..configuration.messages import message_configuration_dict
 import zmq
 
 
 def _message_to_filter(message):
     return f"{message.__name__}::"
+
+def _all_subscribed(subscribed):
+    for _, value in subscribed.items():
+        if not value:
+            return False
+    return True
 
 
 class zmqMessagePublisher:
@@ -28,13 +34,30 @@ class zmqMessagePublisher:
         The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
     """
 
-    def __init__(self, message_type, port=None):
+    def __init__(self, message_type, publisher_port=None, synchronizer_port=None):
         self.message_type = message_type
-        if port is None:
-            port = message_port_dict[message_type.__name__]
+        if publisher_port is None:
+            publisher_port = message_configuration_dict[message_type.__name__]["publisher_port"]
         self.context = zmq.Context()
         self.publisher = self.context.socket(zmq.PUB)
-        self.publisher.bind(f"tcp://*:{port}")
+        self.publisher.bind(f"tcp://*:{publisher_port}")
+
+        synchronizer = self.context.socket(zmq.REP)
+        synchronizer.bind(f"tcp://*:{synchronizer_port}")
+
+        subscribers = message_configuration_dict[message_type.__name__]["subscribers"]
+        subscribed = dict()
+        for subscriber in subscribers:
+            subscribed[subscriber["name"]] = False
+        
+        while not _all_subscribed(subscribed):
+            pass
+            # send synch message
+
+            # check for response from subscribers
+            
+         
+
 
     def __del__(self):
         self.publisher.close()
@@ -69,7 +92,7 @@ class zmqMessageSubscriber:
         self.message_filter = _message_to_filter(message_type)
         self.message_type = message_type
         if port is None:
-            port = message_port_dict[message_type.__name__]
+            port = message_configuration_dict[message_type.__name__]["publisher_port"]
 
         self.subscriber.setsockopt_string(
             zmq.SUBSCRIBE, ""

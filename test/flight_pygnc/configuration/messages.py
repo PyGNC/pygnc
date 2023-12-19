@@ -10,6 +10,12 @@ class TestMessagesConfiguration(unittest.TestCase):
 
         # ensure port numbers are unique
         port_set = set()
-        for message_name, message_port in message_port_dict.items():
-            port_set.add(message_port)
-        self.assertEqual(len(port_set), len(message_port_dict))
+        port_count = 0
+        for message_name, message_config in message_port_dict.items():
+            port_set.add(message_config["publisher_port"])
+            port_count += 1
+            for subscriber in message_config["subscribers"]:
+                port_set.add(subscriber["reply_port"])
+                port_count += 1
+
+        self.assertEqual(len(port_set), port_count)

@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../Py4Data"
+		}
+	],
+	"settings": {
+		"julia.execution.inlineResultsForCellEvaluation": true,
+		"julia.environmentPath": "\\\\wsl.localhost\\Ubuntu-20.04\\home\\fausto\\pygnc"
+	}
+}

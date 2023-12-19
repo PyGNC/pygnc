@@ -1,8 +1,10 @@
 import autograd.numpy as np
 from scipy.linalg import block_diag
 import math
-from .mekf_core import MEKFCore
+from .sqmekf_core import SQMEKFCore
 from .mekf_utils import *
+
+from scipy.linalg import sqrtm
 
 def process_dynamics(x, u, h):
     """
@@ -18,8 +20,6 @@ def process_dynamics(x, u, h):
     #gyro bias
     beta = x[4:7]
 
-    mag_bias = x[7:10]
-
     #biased gyro measurement in radians
     omega = u
 
@@ -28,15 +28,14 @@ def process_dynamics(x, u, h):
     r = (omega - beta)/np.linalg.norm(omega-beta)
 
     dq = np.hstack(([np.cos(theta/2)], r*np.sin(theta/2)))
-    
+
     qnext = L(q)@ dq
 
-    x_next = np.hstack((qnext, beta, mag_bias))
+    x_next = np.hstack((qnext, beta))
 
     return x_next
 
-
-class OrbitMEKF(MEKFCore):
+class OrbitSQMEKF(SQMEKFCore):
     """
     Defines the EKF for the orbit determination problem
     """
@@ -63,7 +62,7 @@ class OrbitMEKF(MEKFCore):
             q = x[0:4]
             
             #magnetomter bias in the body frame
-            magnetometer_bias = x[7:10][:,np.newaxis]
+            #magnetometer_bias = x[7:10][:,np.newaxis]
 
             #takes us from body to imu frame
             #R_IMU_body = np.array([[0.0, 1.0, 0.0],
@@ -99,7 +98,7 @@ class OrbitMEKF(MEKFCore):
             #3x3 matrices 
             #the backslash is just to start a new line in the equation
 
-            #NEW REVISED (not working. singular matrix bug)
+            #NEW REVISED JACOBIANS (working)
             dy_sun_dphi = (2*np.linalg.norm(Q_N_B@sun_measurement)*hat(np.squeeze(sun_predicted)) -\
                         ((Q_N_B@sun_measurement)/np.linalg.norm(Q_N_B@sun_measurement))@sun_measurement.T\
                         @Q_N_B.T@(2*hat(np.squeeze(sun_predicted))))/(np.linalg.norm(Q_N_B@sun_measurement)**2)
@@ -171,14 +170,34 @@ class OrbitMEKF(MEKFCore):
         #std of gyro: 0.025 deg/s
         #std of gyro bias: 3 deg/s
         #std of magnetometer bias: 40 uT
-        #5 is the dt
-        Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(40**2))*5
+        #from the noise
+        #Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(40**2))
 
-        #testing a small std for mag bias
-       # Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(1**2))
+        #Q_noise = block_diag(np.identity(3)*(0.025*math.pi/180)**2, np.identity(3)*(3*math.pi/180)**2, np.identity(3)*(300**2))
+
+        #testing from derivation. the 5 is the dt
+
+        #from tutorial
+        dt = 5
+        term1 = (0.025*math.pi/180)**2 * dt
+        term1_1 = (3*math.pi/180)**2 * (dt**3)/3
+        term1_2 = (3*math.pi/180)**2 * (dt**2)/2
+        term2_2 = (3*math.pi/180)**2 * dt
+
+        #should be 40
+        term3_3 = (40**2) * dt
+
+        Q_noise = block_diag(np.identity(3)*(term1 + term1_1), np.identity(3)*(term2_2), np.identity(3)*(term3_3))
+        Q_noise[0:3, 3:6] = np.identity(3)*(term1_2)
+        Q_noise[3:6, 0:3] = np.identity(3)*(term1_2)
+
+
+        #Q_noise = np.hstack((np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3, np.identity(3)*3**2 * (5**2)/2)))
+
+        #Q_noise = block_diag(np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3), np.identity(3)*(3*math.pi/180)**2*(5), np.identity(3)*(40**2)*(5))
 
         #testing
-        #Q_noise = block_diag(np.identity(3)*(0.05*math.pi/180)**2, np.identity(3)*(6*math.pi/180)**2, np.identity(3)*(80**2))
+        #Q_noise = block_diag(np.identity(3)*(0.25*math.pi/180)**2, np.identity(3)*(15*math.pi/180)**2, np.identity(3)*(160**2))
 
 
         #trying out new Q
@@ -188,6 +207,7 @@ class OrbitMEKF(MEKFCore):
         #Initialize with Q_noise
         P_0 = Q_noise
 
+        F_0 = sqrtm(P_0)
         #initialize the MEKF
         #gyro initialized to zero and then update based off reading the
         #.bin files
@@ -198,17 +218,23 @@ class OrbitMEKF(MEKFCore):
 
         #removed R from the class 
         super().__init__(
-            P_0, time_dynamics, np.zeros(3), measurement_function, Q_noise
+            F_0, time_dynamics, np.zeros(3), measurement_function, Q_noise
         )
 
     def initialize_state(self):
         # initial state
         #arbitrary initial state. may need to change this
+        #this is true value [1.000e+00 8.727e-04 7.775e-10 6.478e-08]
+        #testing
         q0 = np.array([0.18257418583505536, 0.3651483716701107, 0.5477225575051661,0.7302967433402214])
+        
+        #initializing with vector part equal to zero doesn't work
+        #q0 = np.array([-1, 0, 0,0])
+
         #b0 = np.array([0.001,0.001,0.001])
         #b0 = np.array([0.05,0.05,0.05]) #this is in rad/s
         b0 = np.array([1,1,1])*math.pi/180  #this is in rad/s
         #mb0 = np.array([0.001,0.001,0.001])
-        mb0 = np.array([40,30,25]) #this is in uT
+        mb0 = np.array([20,10,-25]) #this is in uT
         x0 = np.hstack((q0,b0, mb0))
         super().initialize_state(x0)

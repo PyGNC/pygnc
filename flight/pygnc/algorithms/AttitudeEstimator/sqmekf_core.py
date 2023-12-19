@@ -5,6 +5,8 @@ import autograd.numpy as np
 from scipy.linalg import solve
 from scipy.linalg import block_diag
 import math
+from scipy.linalg import sqrtm
+from scipy.linalg import qr
 #(TODO: implement the square root version of the MEKF to see if it improves the results?)
 
 #import a set of utils for mekf
@@ -17,16 +19,16 @@ from .mekf_utils import *
 
 #values of C are really small. may be worth implementing the square root version of the MEKF
 
-class MEKFCore:
+class SQMEKFCore:
     # constructor
     #def __init__(self, P0, dynamics, gyro_m, measure, R, Q) -> None:
-    def __init__(self, P0, dynamics, gyro_m, measure, Q) -> None:
-        self.P = P0  # initial covariance
+    def __init__(self, F0, dynamics, gyro_m, measure, Q) -> None:
+        self.F = F0  # initial covariance
         self.f = dynamics  # discrete dynamics function used
         self.u = gyro_m #gyro measurements
         self.g = measure  # measurement function used
         #self.R = R  # measurement noise
-        self.Q = Q #process noise
+        self.sqrt_Q = sqrtm(Q) #process noise
 
     def initialize_state(self, x0):
         self.x = x0
@@ -59,14 +61,22 @@ class MEKFCore:
         R_sun_vec = A_lux@R_lux@A_lux.T
 
         #do the same for the magnetometer measurement. Standard deviation from models.jl definition
-        #R_mag = np.eye(3)*(0.6)**2
+        #trying out. kinda works
+        #R_mag = np.eye(3)*(40.6)**2
 
-        #add magnetometer standard deviation here
+        #standard deviation of magnetometer from models.jl
         R_mag = np.eye(3)*(0.6)**2
+
+        #standard deviation of magnetometer bias from models.jl. in uT
+        R_mb = np.eye(3)*(40)**2
+
+        R_total = block_diag(R_mag, R_mb)
 
         A_mag = (np.linalg.norm(mag)*np.eye(3) - (mag/np.linalg.norm(mag))@mag.T)/(np.linalg.norm(mag)**2)
 
-        R_mag_vec = A_mag@R_mag@A_mag.T
+        A_total = np.hstack((A_mag, A_mag))
+
+        R_mag_vec = A_total@R_total@A_total.T
 
         #measurement noise on inertial vectors
         R_noise = block_diag(R_sun_vec, R_mag_vec)
@@ -74,7 +84,7 @@ class MEKFCore:
         return R_noise
 
 
-    #old get R function
+    #old get R function. (wrong implementation)
     def get_R(self, all_raw_measurements): 
         
         #positive face lux measurements
@@ -147,6 +157,9 @@ class MEKFCore:
 
         Ak = np.block([[Ak11, Ak12, Ak13],[Ak21, Ak22, Ak23],[Ak31, Ak32, Ak33]])
 
+        #print("this is A11", Ak11)
+        #print("this is A: ", Ak)
+
         return Ak
 
     def predict(self, h):
@@ -164,9 +177,15 @@ class MEKFCore:
 
         A = self.get_jacobian(h)
 
-        P_predicted = A @ self.P @ A.T + self.Q
+        F = self.F
 
-        return x_predicted, P_predicted
+        n = np.vstack((F @ A.T, self.sqrt_Q))
+
+        _, F_predicted = qr(np.real(n), mode="economic")
+
+        #P_predicted = A @ self.P @ A.T + self.Q
+
+        return x_predicted, F_predicted
     
     # g is the measurement function
     def innovation(self, all_raw_measurements, body_measurement, inertial_measurement, x_predicted):
@@ -193,7 +212,7 @@ class MEKFCore:
         
         return Z, C
     
-    def kalman_gain(self, P_predicted, C, all_raw_measurements):
+    def kalman_gain(self, F_predicted, C, all_raw_measurements):
         """
         MEKF Kalman Gain
         """
@@ -201,14 +220,26 @@ class MEKFCore:
         #R = self.get_R(all_raw_measurements)
         R = self.get_R_notworking(all_raw_measurements)
 
+        #biases kinda converging
         #R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
 
+        sqrt_R = sqrtm(R)
+
+        m = np.vstack((F_predicted @ C.T, sqrt_R))
+
+        _, G = qr(m, mode="economic")
+
+        M = solve(G.T, C) @ F_predicted.T @ F_predicted
+
+        L_inside = solve(G, M)
+
+        L_ = L_inside.T
 
         # innovation covariance
-        S = C@P_predicted@C.T + R
+        #S = C@P_predicted@C.T + R
 
         #Kalman gain 
-        L_ = np.linalg.solve(S.T, C @ P_predicted.T).T
+        #L_ = np.linalg.solve(S.T, C @ P_predicted.T).T
 
         return L_
 
@@ -220,24 +251,27 @@ class MEKFCore:
         MEKF update step
         """
         # Predict the next state and covariance
-        x_predicted, P_predicted = self.predict(dt)
+        x_predicted, F_predicted = self.predict(dt)
 
         #this y should be the inertial measurement
         Z, C = self.innovation(all_raw_measurements, body_measurement, inertial_measurement, x_predicted)
 
         # calculate kalman gain
-        L_ = self.kalman_gain(P_predicted, C, all_raw_measurements)
+        L_ = self.kalman_gain(F_predicted, C, all_raw_measurements)
 
         delta = L_ @ Z
 
         #go to vector 
-        delta = delta[:,0]
+        delta = np.real(delta[:,0])
 
         print("this is delta: ", delta)
 
         #get the delta quaternion from the rodrigues parameter (delta rotation)
         dq = RP_to_quaternion(delta[0:3])
-        
+
+        print("this is dq: ", dq)
+        print("dq size: ", dq.shape)
+        print("size of Lq: ", L(x_predicted[0:4]).shape)
         #normalize
         dq = dq/np.linalg.norm(dq)
 
@@ -251,15 +285,17 @@ class MEKFCore:
         self.x[7:] = x_predicted[7:] + delta[6:]
 
         #get R
-        #R_working = self.get_R(all_raw_measurements)
+        #R = self.get_R(all_raw_measurements)
         R = self.get_R_notworking(all_raw_measurements)
 
-        #print("this is R: ", R)
-
-        #print("this is R_working: ", R_working)
+        #biases kinda converging
         #R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(8*math.pi/180)**2)
 
-        #print("this is R_random: ", R_random)
-
+        sqrt_R = sqrtm(R)
         #update the covariance
-        self.P = (np.identity(9) - L_@C)@P_predicted@(np.identity(9) - L_@C).T + L_@R@L_.T
+        #self.F = (np.identity(9) - L_@C)@F_predicted@(np.identity(9) - L_@C).T + L_@R@L_.T
+
+        e = np.real(np.vstack((F_predicted @ (np.identity(9) - L_ @ C).T, sqrt_R @ L_.T)))
+
+        # update the square root covariance
+        _, self.F = qr(e, mode="economic")

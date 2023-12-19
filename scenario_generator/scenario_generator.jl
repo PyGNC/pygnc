@@ -19,6 +19,7 @@ end
 
 
 function simulate_scenario(;
+    #1 is the hour
     batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data

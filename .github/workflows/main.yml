@@ -18,9 +18,11 @@ jobs:
       with:
         python-version: 3.9
         
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+    - name: Install dependencies 1
+      run: ./setup/additional_package_install_1.sh
+        
+    - name: Install dependencies 2
+      run: ./setup/additional_package_install_2.sh
 
     - name: Run tests
       run: python ./runtests.py

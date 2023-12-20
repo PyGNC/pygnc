@@ -74,7 +74,7 @@ class zmqMessageSubscriber:
         The port is determined from this message unless explicitly specified with the port argument.
         Ports should always be determined from the message (via message_port_dict).
         The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
-    return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned. 
+    return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned.
         For a real time GNC system this is typically what we want.
         For a batch estimator it is better for it to be false and for the messages to queue.
     """

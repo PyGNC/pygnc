@@ -19,6 +19,7 @@ import zmq
 def _message_to_filter(message):
     return f"{message.__name__}::"
 
+
 def _all_subscribed(subscribed):
     for _, value in subscribed.items():
         if not value:
@@ -37,7 +38,9 @@ class zmqMessagePublisher:
     def __init__(self, message_type, publisher_port=None, synchronizer_port=None):
         self.message_type = message_type
         if publisher_port is None:
-            publisher_port = message_configuration_dict[message_type.__name__]["publisher_port"]
+            publisher_port = message_configuration_dict[message_type.__name__][
+                "publisher_port"
+            ]
         self.context = zmq.Context()
         self.publisher = self.context.socket(zmq.PUB)
         self.publisher.bind(f"tcp://*:{publisher_port}")
@@ -49,15 +52,12 @@ class zmqMessagePublisher:
         subscribed = dict()
         for subscriber in subscribers:
             subscribed[subscriber["name"]] = False
-        
+
         while not _all_subscribed(subscribed):
             pass
             # send synch message
 
             # check for response from subscribers
-            
-         
-
 
     def __del__(self):
         self.publisher.close()

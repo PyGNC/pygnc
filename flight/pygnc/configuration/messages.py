@@ -14,13 +14,13 @@ message_configuration_dict = {
         "subscribers": [
             {"name": "telemetry_logger", "reply_port": 5561},
             {"name": "orbit_estimator", "reply_port": 5562},
-            ],
+        ],
     },
     messages.OrbitEstimateMessage.__name__: {
         "publisher_port": 5570,
         "subscribers": [
             {"name": "telemetry_logger", "reply_port": 5571},
             {"name": "attitude_estimator", "reply_port": 5572},
-            ]
+        ],
     },
 }

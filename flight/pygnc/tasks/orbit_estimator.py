@@ -4,7 +4,7 @@ import time
 
 
 from ..common import data_parsing, transformations, messages
-from ..common.zmq_messaging import zmqMessagePublisher 
+from ..common.zmq_messaging import zmqMessagePublisher
 from ..configuration import orbit_estimator as oe_config
 from ..configuration import pygnc as pygnc_config
 from ..algorithms.OrbitEstimator import OrbitEKF

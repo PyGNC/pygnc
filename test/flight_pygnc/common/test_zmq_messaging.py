@@ -55,7 +55,7 @@ class TestZMQMessaging(unittest.TestCase):
         del sub
 
     def test_empty_orbit_estimate_message(self):
-        port = None # look up port using message type
+        port = None  # look up port using message type
         pub = zmq_messaging.zmqMessagePublisher(
             messages.OrbitEstimateMessage, port=port
         )

@@ -180,6 +180,7 @@ class TestOrbitEstimateMessage(unittest.TestCase):
 
         verify_empty_orbit_estimate_message(self, oem2)
 
+
 def verify_empty_sensor_gps_message(test_case, sgm):
     test_case.assertIsInstance(sgm.sensor_message, messages.SensorMessage)
     test_case.assertIsInstance(sgm.gps_message, messages.GPSMessage)

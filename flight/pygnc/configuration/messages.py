@@ -11,16 +11,12 @@ These should be unique.
 message_configuration_dict = {
     messages.SensorGPSMessage.__name__: {
         "publisher_port": 5560,
-        "subscribers": [
-            {"name": "telemetry_logger", "reply_port": 5561},
-            {"name": "orbit_estimator", "reply_port": 5562},
-        ],
+        "synchronizer_port": 5561,
+        "subscribers": ["telemetry_logger", "orbit_estimator"],
     },
     messages.OrbitEstimateMessage.__name__: {
         "publisher_port": 5570,
-        "subscribers": [
-            {"name": "telemetry_logger", "reply_port": 5571},
-            {"name": "attitude_estimator", "reply_port": 5572},
-        ],
+        "synchronizer_port": 5571,
+        "subscribers": ["telemetry_logger", "attitude_estimator"],
     },
 }

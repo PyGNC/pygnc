@@ -20,11 +20,25 @@ def _message_to_filter(message):
     return f"{message.__name__}::"
 
 
-def _all_subscribed(subscribed):
-    for _, value in subscribed.items():
-        if not value:
-            return False
-    return True
+def _recv(socket, block=False):
+    block_flag = 0 if block else zmq.NOBLOCK
+    try:
+        raw_message = socket.recv(flags=block_flag)
+        return raw_message
+    except zmq.ZMQError as e:
+        if str(e) == "Resource temporarily unavailable":
+            # ZMQError was raised because no message is available
+            return None
+        else:
+            raise e
+
+
+def zmq_synchronize(publishers, subscribers):
+    """
+    This performs synchronization between the publishers and subscribers belonging to a task.
+    All publishers and all subscribers a
+    """
+    pass
 
 
 class zmqMessagePublisher:
@@ -35,37 +49,62 @@ class zmqMessagePublisher:
         The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
     """
 
-    def __init__(self, message_type, publisher_port=None, synchronizer_port=None):
+    def __init__(
+        self,
+        message_type,
+        publisher_port=None,
+        synchronizer_port=None,
+        subscriber_names=None,
+    ):
         self.message_type = message_type
+        self.context = zmq.Context()
+
         if publisher_port is None:
             publisher_port = message_configuration_dict[message_type.__name__][
                 "publisher_port"
             ]
-        self.context = zmq.Context()
         self.publisher = self.context.socket(zmq.PUB)
         self.publisher.bind(f"tcp://*:{publisher_port}")
 
-        synchronizer = self.context.socket(zmq.REP)
-        synchronizer.bind(f"tcp://*:{synchronizer_port}")
+        if synchronizer_port is None:
+            synchronizer_port = message_configuration_dict[message_type.__name__][
+                "synchronizer_port"
+            ]
+        self.synchronizer = self.context.socket(zmq.REP)
+        self.synchronizer.bind(f"tcp://*:{synchronizer_port}")
 
-        subscribers = message_configuration_dict[message_type.__name__]["subscribers"]
-        subscribed = dict()
-        for subscriber in subscribers:
-            subscribed[subscriber["name"]] = False
-
-        while not _all_subscribed(subscribed):
-            pass
-            # send synch message
-
-            # check for response from subscribers
+        if subscriber_names is None:
+            subscriber_names = message_configuration_dict[message_type.__name__][
+                "subscribers"
+            ]
+        self.subscribed = {
+            subscriber_name: False for subscriber_name in subscriber_names
+        }
 
     def __del__(self):
         self.publisher.close()
+        self.synchronizer.close()
         self.context.term()
 
     def send(self, message: messages.MsgpackMessage):
         message_filter = _message_to_filter(message.__class__)
         self.publisher.send(message_filter.encode("utf-8") + message.to_msgpack_b())
+
+    def update_subscribed(self, subscriber_name):
+        if subscriber_name in self.subscribed:
+            self.subscribed[subscriber_name] = True
+
+    def all_subscribed(self):
+        for _, value in self.subscribed.items():
+            if not value:
+                return False
+        return True
+
+    def synchronize(self):
+        self.publisher.send("SYNC::")
+        msg = _recv(self.synchronizer, block=False)
+        if msg is not None:
+            pass
 
 
 class zmqMessageSubscriber:
@@ -80,7 +119,11 @@ class zmqMessageSubscriber:
     """
 
     def __init__(
-        self, message_type: messages.MsgpackMessage, port=None, return_latest=True
+        self,
+        message_type: messages.MsgpackMessage,
+        return_latest=True,
+        publisher_port=None,
+        synchronizer_port=None,
     ):
         self.context = zmq.Context()
         self.subscriber = self.context.socket(zmq.SUB)
@@ -91,34 +134,29 @@ class zmqMessageSubscriber:
 
         self.message_filter = _message_to_filter(message_type)
         self.message_type = message_type
-        if port is None:
-            port = message_configuration_dict[message_type.__name__]["publisher_port"]
+        if publisher_port is None:
+            publisher_port = message_configuration_dict[message_type.__name__][
+                "publisher_port"
+            ]
 
         self.subscriber.setsockopt_string(
             zmq.SUBSCRIBE, ""
         )  # subscribe to everything on this port
 
-        self.subscriber.connect(f"tcp://localhost:{port}")
+        self.subscriber.connect(f"tcp://localhost:{publisher_port}")
 
     def receive(self, block=True):
 
-        block_flag = 0 if block else zmq.NOBLOCK
+        raw_message = _recv(self.subscriber, block=block)
 
-        try:
-            raw_message = self.subscriber.recv(flags=block_flag)
-        except zmq.ZMQError as e:
-            if str(e) == "Resource temporarily unavailable":
-                # ZMQError was raised because no message is available
-                return None
-            else:
-                raise e
-        filter_len = len(self.message_filter)
-        try:
-            recieved_filter = raw_message[:filter_len].decode("utf-8")
-            if raw_message[:filter_len].decode("utf-8") == self.message_filter:
-                return self.message_type(msgpack_b=raw_message[filter_len:])
-        except UnicodeDecodeError:
-            # filter string didn't decode
-            pass
+        if raw_message is not None:
+            filter_len = len(self.message_filter)
+            try:
+                recieved_filter = raw_message[:filter_len].decode("utf-8")
+                if raw_message[:filter_len].decode("utf-8") == self.message_filter:
+                    return self.message_type(msgpack_b=raw_message[filter_len:])
+            except UnicodeDecodeError:
+                # filter string didn't decode
+                pass
 
         return None

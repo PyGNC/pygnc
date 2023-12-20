@@ -61,8 +61,8 @@ Each segment of GPS data is 99 bytes and consists of the following:
 ### Range files
 Range files are contained in `~/range/`. The file names have the format `rng#####.bin`.
 
-`range.bin` file format
-The `range.bin` file is used to communicate range measurements.
+`rng#####.bin` file format
+The `rng#####.bin` file is used to communicate range measurements.
 It consists of a GPS measurement packet followed by one or more range measurements that occurred at approximately the same time.
 Each GPS measurement packet is 102 bytes and starts with `0xaaD`. 
 Each Range packet is 12 bytes.

@@ -1,0 +1,28 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.9
+        
+    - name: Install dependencies 1
+      run: ./setup/additional_package_install_1.sh
+        
+    - name: Install dependencies 2
+      run: ./setup/additional_package_install_2.sh
+
+    - name: Run tests
+      run: python ./runtests.py

@@ -216,6 +216,10 @@ function generate_scenario(
 end
 
 state_hist, time_hist, measurement_history = simulate_scenario()
+"""using DelimitedFiles
+writedlm("state_hist.csv", state_hist, ',')
+writedlm("time_hist.csv", time_hist, ',')
+writedlm("measurement_hist.csv", measurement_history, ',')"""
 measurements_to_batch_file(
     measurement_history,
     1 * 60 * 60, # number of seconds of sensor data to provide

@@ -52,17 +52,83 @@ def main(batch_gps_sensor_data_filepath):
     prev_epoch = None
     in_prediction = 5
 
+    estimates = []
+
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
         _, gps_message = bd
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
         packet_count += 1
 
+        estimates.append(orbit_ekf.x)
+
         for i in range(in_prediction-1):
             prev_epoch = predict_orbit_ekf(orbit_ekf, prev_epoch)
-        #print(prev_epoch)
+
+            estimates.append(orbit_ekf.x)
 
     print("Batch orbit estimation completed")
+
+
+
+    import matplotlib.pyplot as plt
+    estimates = np.array(estimates)
+    ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/default_scenario/state_hist.txt', delimiter=',')[::50, :6] # every 5 sec
+    #ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/default_scenario/state_hist.txt', delimiter=',')[::250, :6] # every 25 sec
+    
+    plot_size = estimates.shape[0]
+    print(plot_size)
+    print(estimates.shape)
+    print(ground_truth_states.shape)
+
+    fig1, axs1 = plt.subplots(3)
+    fig1.suptitle('Position estimation')
+    axs1[0].plot(estimates[:,0], color='blue', label='est')
+    axs1[0].plot(ground_truth_states[:plot_size,0], color='red', label='gt')
+    axs1[0].set_title('x')
+    axs1[0].legend() 
+    axs1[1].plot(estimates[:,1], color='blue', label='est')
+    axs1[1].plot(ground_truth_states[:plot_size,1], color='red', label='gt')
+    axs1[1].set_title('y')
+    axs1[1].legend() 
+    axs1[2].plot(estimates[:,2], color='blue', label='est')
+    axs1[2].plot(ground_truth_states[:plot_size,2], color='red', label='gt')
+    axs1[2].set_title('z')
+    axs1[2].legend() 
+
+    
+    fig2, axs2 = plt.subplots(3)
+    fig2.suptitle('Velocity estimation')
+    axs2[0].plot(estimates[:,3], color='blue', label='est')
+    axs2[0].plot(ground_truth_states[:plot_size,3], color='red', label='gt')
+    axs2[0].set_title('xdot')
+    axs2[0].legend() 
+    axs2[1].plot(estimates[:,4], color='blue', label='est')
+    axs2[1].plot(ground_truth_states[:plot_size,4], color='red', label='gt')
+    axs2[1].set_title('ydot')
+    axs2[1].legend() 
+    axs2[2].plot(estimates[:,5], color='blue', label='est')
+    axs2[2].plot(ground_truth_states[:plot_size,5], color='red', label='gt')
+    axs2[2].set_title('zdot')
+    axs2[2].legend() 
+
+    fig3, axs3 = plt.subplots(2)
+    fig3.suptitle('Residual orbit estimation')
+    axs3[0].plot(ground_truth_states[:plot_size,0] - estimates[:,0], label='x')
+    axs3[0].plot(ground_truth_states[:plot_size,1] - estimates[:,1], label='y')
+    axs3[0].plot(ground_truth_states[:plot_size,2] - estimates[:,2], label='z')
+    axs3[0].legend() 
+    axs3[0].set_title('Position')
+    axs3[1].plot(ground_truth_states[:plot_size,3] - estimates[:,3], label='xdot')
+    axs3[1].plot(ground_truth_states[:plot_size,4] - estimates[:,4], label='ydot')
+    axs3[1].plot(ground_truth_states[:plot_size,5] - estimates[:,5], label='zdot')
+    axs3[1].legend() 
+    axs3[1].set_title('Velocity')
+
+
+    fig1.savefig('scenarios/default_scenario/position_estimation.png')
+    fig2.savefig('scenarios/default_scenario/velocity_estimation.png')
+    fig3.savefig('scenarios/default_scenario/residuals.png')
 
     print("Final state estimate:")
     print(f"\t{orbit_ekf.x}")

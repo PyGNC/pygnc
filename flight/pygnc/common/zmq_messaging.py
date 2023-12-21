@@ -15,6 +15,8 @@ from . import messages
 from ..configuration.messages import message_configuration_dict
 import zmq
 
+_SYNC_WORD = "SYNC::".encode("utf-8")
+
 
 def _message_to_filter(message):
     return f"{message.__name__}::"
@@ -36,9 +38,22 @@ def _recv(socket, block=False):
 def zmq_synchronize(publishers, subscribers):
     """
     This performs synchronization between the publishers and subscribers belonging to a task.
-    All publishers and all subscribers a
+    All publishers and all subscribers belonging to the task should be provided as inputs.
     """
-    pass
+    sync_count = 0
+    while True:
+        all_synchronized = True
+
+        for publisher in publishers:
+            all_synchronized &= publisher.synchronizer_update()
+
+        for subscriber in subscribers:
+            subscriber.synchronizer_update()
+
+        if all_synchronized:
+            print(f"Synchronized after {sync_count} iterations")
+            break
+        sync_count += 1
 
 
 class zmqMessagePublisher:
@@ -90,21 +105,32 @@ class zmqMessagePublisher:
         message_filter = _message_to_filter(message.__class__)
         self.publisher.send(message_filter.encode("utf-8") + message.to_msgpack_b())
 
-    def update_subscribed(self, subscriber_name):
+    def _update_subscribed(self, subscriber_name):
         if subscriber_name in self.subscribed:
             self.subscribed[subscriber_name] = True
 
-    def all_subscribed(self):
+    def _all_subscribed(self):
         for _, value in self.subscribed.items():
             if not value:
                 return False
         return True
 
-    def synchronize(self):
-        self.publisher.send("SYNC::")
-        msg = _recv(self.synchronizer, block=False)
-        if msg is not None:
-            pass
+    def synchronizer_update(self):
+        """
+        synchronization is expected to work as follows:
+         - the publisher sends the sync message on the pub-sub connection
+         - when a subscriber recieves the sync message it responds with
+            its task name on the req-rep connection
+         - when the publisher gets the task name, it marks that task as sync'd in self.subscribed
+         - once all subscribers report that they are getting messages, the connection is sync'd
+        """
+        self.publisher.send()
+        raw_message = _recv(self.synchronizer, block=False)
+        if raw_message is not None:
+            message = raw_message.decode("utf-8")
+            self._update_subscribed(message)
+
+        return self._all_subscribed()
 
 
 class zmqMessageSubscriber:
@@ -113,6 +139,7 @@ class zmqMessageSubscriber:
         The port is determined from this message unless explicitly specified with the port argument.
         Ports should always be determined from the message (via message_port_dict).
         The port argument is only for unit test fixtures where tests are run in parallel and port conflicts can occur.
+    task_name: the name of the task this subscriber belongs to. Should match the subscriber names in configuration/messages.py
     return_latest: if true, set the CONFLATE flag so old messages are dropped and the latest one is returned.
         For a real time GNC system this is typically what we want.
         For a batch estimator it is better for it to be false and for the messages to queue.
@@ -121,6 +148,7 @@ class zmqMessageSubscriber:
     def __init__(
         self,
         message_type: messages.MsgpackMessage,
+        task_name,
         return_latest=True,
         publisher_port=None,
         synchronizer_port=None,
@@ -145,6 +173,15 @@ class zmqMessageSubscriber:
 
         self.subscriber.connect(f"tcp://localhost:{publisher_port}")
 
+        if synchronizer_port is None:
+            synchronizer_port = message_configuration_dict[message_type.__name__][
+                "synchronizer_port"
+            ]
+        self.synchronizer = self.context.socket(zmq.REQ)
+        self.synchronizer.connect(f"tcp://localhost:{synchronizer_port}")
+
+        self.task_name = task_name
+
     def receive(self, block=True):
 
         raw_message = _recv(self.subscriber, block=block)
@@ -160,3 +197,11 @@ class zmqMessageSubscriber:
                 pass
 
         return None
+
+    def synchronizer_update(self):
+        raw_message = _recv(self.subscriber, block=False)
+        if raw_message is not None and raw_message == _SYNC_WORD:
+            self.synchronizer.send(self.task_name.encode("utf-8"))
+            return True
+        else:
+            return False

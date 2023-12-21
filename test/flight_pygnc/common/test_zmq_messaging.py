@@ -25,6 +25,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         sub = zmq_messaging.zmqMessageSubscriber(
             messages.SensorMessage,
+            "test_empty_sensor_message",
             publisher_port=publisher_port,
             synchronizer_port=synchronizer_port,
         )
@@ -55,6 +56,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         sub = zmq_messaging.zmqMessageSubscriber(
             messages.GPSMessage,
+            "test_empty_gps_message",
             publisher_port=publisher_port,
             synchronizer_port=synchronizer_port,
         )
@@ -85,6 +87,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         sub = zmq_messaging.zmqMessageSubscriber(
             messages.OrbitEstimateMessage,
+            "test_empty_orbit_estimate_message",
             publisher_port=publisher_port,
             synchronizer_port=synchronizer_port,
         )
@@ -115,6 +118,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         sub = zmq_messaging.zmqMessageSubscriber(
             messages.SensorMessage,
+            "test_invalid_message",
             publisher_port=publisher_port,
             synchronizer_port=synchronizer_port,
         )
@@ -144,6 +148,7 @@ class TestZMQMessaging(unittest.TestCase):
         )
         sub = zmq_messaging.zmqMessageSubscriber(
             messages.SensorMessage,
+            "test_single_message",
             publisher_port=publisher_port,
             synchronizer_port=synchronizer_port,
         )
@@ -198,8 +203,10 @@ class TestZMQMessaging(unittest.TestCase):
             synchronizer_port=synchronizer_port,
             subscriber_names=subscriber_names,
         )
-        self.assertFalse(pub.all_subscribed())
-        pub.update_subscribed("task_1")
-        self.assertFalse(pub.all_subscribed())
-        pub.update_subscribed("task_2")
-        self.assertTrue(pub.all_subscribed())
+        self.assertFalse(pub._all_subscribed())
+        pub._update_subscribed("task_1")
+        self.assertFalse(pub._all_subscribed())
+        pub._update_subscribed("fortytwo")
+        self.assertFalse(pub._all_subscribed())
+        pub._update_subscribed("task_2")
+        self.assertTrue(pub._all_subscribed())

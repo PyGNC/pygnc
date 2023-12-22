@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 from ..common.zmq_messaging import zmqMessageSubscriber
 from ..common import messages
@@ -21,9 +22,11 @@ def update_info_file(
         pygnc_config.info_filepath, "w"
     ) as info_file:  # overwrite info file every time
         info_file.write(
-            f"""OE:{oem_message.state_estimate}
-GY:{oem_message.sensor_message.gyro_measurement}
-MG:{oem_message.sensor_message.mag_measurement}
+            f"""
+T:{str(oem_message.epoch)}
+OE:{np.array2string(oem_message.state_estimate, max_line_width=1000, precision=4, separator=',')}
+GY:{np.array2string(oem_message.sensor_message.gyro_measurement, max_line_width=1000, precision=4, separator=',')}
+MG:{np.array2string(oem_message.sensor_message.mag_measurement, max_line_width=1000, precision=4, separator=',')}
 """
         )
 

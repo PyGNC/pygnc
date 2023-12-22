@@ -47,7 +47,7 @@ class SQMEKFCore:
         mag = all_raw_measurements[6:][:,np.newaxis]
 
         #0.01 is the standard deviation from the lux measurements. Standard deviation from models.jl definition
-        R_lux = np.eye(6)*(0.01)**2
+        R_lux = np.eye(6)*(0.1)**2
 
         #transform 6x6 lux uncertainty to 3 dimensional vector noise
 

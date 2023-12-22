@@ -1,3 +1,4 @@
 {
-    "julia.execution.inlineResultsForCellEvaluation": true
+    "julia.execution.inlineResultsForCellEvaluation": true,
+    "julia.environmentPath": "/home/fausto/pygnc"
 }

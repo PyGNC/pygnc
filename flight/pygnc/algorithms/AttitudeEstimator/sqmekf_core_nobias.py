@@ -224,7 +224,9 @@ class SQMEKFCore_nb:
         #R = self.get_R(all_raw_measurements)
         #R = self.get_R_notworking(all_raw_measurements)
 
-        R = block_diag(np.identity(3)*(1*math.pi/180)**2, np.identity(3)*(1*math.pi/180)**2)
+        # R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(12*math.pi/180)**2)
+
+        R = block_diag(np.identity(3)*(6*math.pi/180)**2, np.identity(3)*(12*math.pi/180)**2)
 
         sqrt_R = sqrtm(R)
 
@@ -292,7 +294,9 @@ class SQMEKFCore_nb:
         #R = self.get_R_notworking(all_raw_measurements)
 
         #biases kinda converging
-        R = block_diag(np.identity(3)*(1*math.pi/180)**2, np.identity(3)*(1*math.pi/180)**2)
+        #R = block_diag(np.identity(3)*(8*math.pi/180)**2, np.identity(3)*(10*math.pi/180)**2)
+
+        R = block_diag(np.identity(3)*(6*math.pi/180)**2, np.identity(3)*(12*math.pi/180)**2)
 
         sqrt_R = sqrtm(R)
         #update the covariance

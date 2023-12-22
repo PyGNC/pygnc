@@ -16,6 +16,8 @@ from ..algorithms.AttitudeEstimator import OrbitSQMEKF
 
 from ..algorithms.AttitudeEstimator import OrbitSQMEKF_nb
 
+from ..algorithms.AttitudeEstimator import OrbitSQMEKF_nb_all
+
 from ..algorithms.AttitudeEstimator.mekf_utils import *
 
 #solar lux + earth albedo lux
@@ -46,9 +48,14 @@ mag_bias_truth = np.array([-23.10390, 8.793605, 36.207927])
 #for the new default scenerio
 #ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history.txt', delimiter=',')
 
-ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history_long.txt', delimiter=',')
+#longer time horizon scenerio
+#ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history_long.txt', delimiter=',')
 
-groundtruth_attitude = np.loadtxt('/home/fausto/pygnc/scenario_generator/sim_attitude_omega_v2_new_orbit.txt', delimiter=',')
+#no gyro and mag bias scenerio
+ground_truth_states = np.loadtxt('/home/fausto/pygnc/scenario_generator/state_history_no_biases.txt', delimiter=',')
+
+#from the spacecraftsim.jl file. not working
+#groundtruth_attitude = np.loadtxt('/home/fausto/pygnc/scenario_generator/sim_attitude_omega_v2_new_orbit.txt', delimiter=',')
 
 #print('ground truth states: ', ground_truth_states.shape)
 
@@ -84,7 +91,7 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
     #print("gyro measurements deg/s: ", gyro_measurements)
 
     #convert to rad/s and into body coordinates
-    gyro_measurements = (R_body_IMU@gyro_measurements) * np.pi/180
+    gyro_measurements_transformed = (R_body_IMU@gyro_measurements) * np.pi/180
 
     #print("gyro measurements rad/s: ", gyro_measurements)
 
@@ -130,7 +137,10 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
         orbit_mekf.initialize_state()
 
         #need to convert the gyro measurements to rad/s
-        orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+        #bug was that I was rotating gyro measurement twice :/
+        #orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+
+        orbit_mekf.u = gyro_measurements_transformed
 
         current_epoch = measurement_epoch
         current_spacecraft_time = sensor_message.spacecraft_time
@@ -155,7 +165,9 @@ def update_orbit_mekf(orbit_mekf, sensor_message, gps_message,count, prev_epoch=
 
         #print("inertial measurement: ", inertial_measurement)
         #need to convert the gyro measurements to rad/s and into body coordinates
-        orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+        #orbit_mekf.u = (R_body_IMU@gyro_measurements)*(np.pi/180)
+
+        orbit_mekf.u = gyro_measurements_transformed
 
         orbit_mekf.update(all_raw_measurements, state_measurement_body, inertial_measurement, dt)
 
@@ -173,17 +185,26 @@ def main(batch_gps_sensor_data_filepath):
     #for no bias
     #all_estimates = np.zeros((7, 144*5*3))
 
-    #with mag bias
-    all_estimates = np.zeros((10, 144*5*3))
+    #with mag bias. long time horizon
+    #all_estimates = np.zeros((10, 144*5*3))
+
+    #all_estimates = np.zeros((10, 144*5))
+
+    all_estimates = np.zeros((4, 144*5*3))
 
     # instantiate orbit estimator
     #orbit_mekf = OrbitMEKF()
 
     #square root version
-    orbit_mekf = OrbitSQMEKF()
+    #orbit_mekf = OrbitSQMEKF()
 
-    #no magnetomter bias version
+    #no magnetomter bias version. not estimating it out. but it is in the 
+    #measurements
+
     #orbit_mekf = OrbitSQMEKF_nb()
+
+    #no magnetometer or gyro bias 
+    orbit_mekf = OrbitSQMEKF_nb_all()
 
     # batch update orbit estimator
     batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
@@ -252,33 +273,31 @@ def main(batch_gps_sensor_data_filepath):
     print(f"\t{np.diag(orbit_mekf.F)}")
 
 
-    #plotting the attitude error 
-    for i in range(all_estimates.shape[1]):
+    # #plotting the attitude error 
+    # for i in range(all_estimates.shape[1]):
 
-    #inv_truth = conj_q(satellite_attitude_omega[0:4, i])
-    #quat_diff[:,i] = L(inv_truth)@all_states[0:4, i]
+    # #inv_truth = conj_q(satellite_attitude_omega[0:4, i])
+    # #quat_diff[:,i] = L(inv_truth)@all_states[0:4, i]
 
-        inv_all_states = conj_q(all_estimates[0:4, i])
-        #quat_diff = L(np.flipud(ground_truth_states[indices[i], 6:10]))@inv_all_states
-        quat_diff = L(ground_truth_states[indices[i], 6:10])@inv_all_states
-        axisangle_diff = 2*math.acos(quat_diff[0])*180/np.pi
-        attitude_error[i] = axisangle_diff
-        #in degrees
-        #attitude_error[i] = np.linalg.norm(mrp_diff)#*180/np.pi
+    #     inv_all_states = conj_q(all_estimates[0:4, i])
+    #     #quat_diff = L(np.flipud(ground_truth_states[indices[i], 6:10]))@inv_all_states
+    #     quat_diff = L(ground_truth_states[indices[i], 6:10])@inv_all_states
+    #     axisangle_diff = 2*math.acos(quat_diff[0])*180/np.pi
+    #     attitude_error[i] = axisangle_diff
 
 
     #this is is for the new default scenerio
     #ground truth mag bias and gyro bias
-    #mag_bias_truth = np.array([15.16648, 12.85475, -36.121958])
+    mag_bias_truth = np.array([15.16648, 12.85475, -36.121958])
     #this is in degrees/second
-    #gyro_bias_truth = np.array([1.59531306, -0.61455357, 0.30912115])
+    gyro_bias_truth = np.array([1.59531306, -0.61455357, 0.30912115])
 
     #this is for the long scenerio
-    mag_bias_truth = np.array([-23.10390, 8.793605, 36.207927])
+    #mag_bias_truth = np.array([-23.10390, 8.793605, 36.207927])
     #this is in degrees/second
-    gyro_bias_truth = np.array([-2.743841, 0.8487285, -1.412131])
+    #gyro_bias_truth = np.array([-2.743841, 0.8487285, -1.412131])
 
-    print("SIZE OF ground truth attitude:", groundtruth_attitude.shape)
+    #print("SIZE OF ground truth attitude:", groundtruth_attitude.shape)
     #convert to rad/s
     gyro_bias_truth = gyro_bias_truth*np.pi/180
 
@@ -321,17 +340,17 @@ def main(batch_gps_sensor_data_filepath):
 
     #Get the ground truth for the gyro bias of that scenerio
     #plot the gyro bias estimates as subplots
-    fig2, axs2 = plt.subplots(3)
-    fig2.suptitle('Gyro Bias Estimates')
-    axs2[0].plot(all_estimates[4,:])
-    axs2[0].plot(gyro_bias_truth[0]*np.ones(t_size))
-    axs2[0].set_title('x bias')
-    axs2[1].plot(all_estimates[5,:])
-    axs2[1].plot(gyro_bias_truth[1]*np.ones(t_size))
-    axs2[1].set_title('y bias')
-    axs2[2].plot(all_estimates[6,:])
-    axs2[2].plot(gyro_bias_truth[2]*np.ones(t_size))
-    axs2[2].set_title('z bias')
+    # fig2, axs2 = plt.subplots(3)
+    # fig2.suptitle('Gyro Bias Estimates')
+    # axs2[0].plot(all_estimates[4,:])
+    # axs2[0].plot(gyro_bias_truth[0]*np.ones(t_size))
+    # axs2[0].set_title('x bias')
+    # axs2[1].plot(all_estimates[5,:])
+    # axs2[1].plot(gyro_bias_truth[1]*np.ones(t_size))
+    # axs2[1].set_title('y bias')
+    # axs2[2].plot(all_estimates[6,:])
+    # axs2[2].plot(gyro_bias_truth[2]*np.ones(t_size))
+    # axs2[2].set_title('z bias')
 
     #Get the ground truth for the gyro bias of that scenerio
     #plot the magnetometer bias estimates as subplots
@@ -357,7 +376,7 @@ def main(batch_gps_sensor_data_filepath):
 
     #save the plot as a png
     fig1.savefig('state_estimates.png')
-    fig2.savefig('gyro_bias_estimates.png')
+    #fig2.savefig('gyro_bias_estimates.png')
     #fig3.savefig('magnetometer_bias_estimates.png')
     fig4.savefig('attitude_error.png')
     fig7.savefig('groundtruth_quaternion.png')

@@ -183,11 +183,11 @@ class OrbitSQMEKF_nb(SQMEKFCore_nb):
 
         #from tutorial
         dt = 5
+        #term1 = (0.025*math.pi/180)**2 * dt
         term1 = (0.025*math.pi/180)**2 * dt
-        #term1 = (0.25*math.pi/180)**2 * dt
-        term1_1 = (0.3*math.pi/180)**2 * (dt**3)/3
-        term1_2 = (0.3*math.pi/180)**2 * (dt**2)/2
-        term2_2 = (0.3*math.pi/180)**2 * dt
+        term1_1 = (3*math.pi/180)**2 * (dt**3)/3
+        term1_2 = (3*math.pi/180)**2 * (dt**2)/2
+        term2_2 = (3*math.pi/180)**2 * dt
 
         #testing
         #term1_1 = (1*math.pi/180)**2 * (dt**3)/3
@@ -203,6 +203,7 @@ class OrbitSQMEKF_nb(SQMEKFCore_nb):
         Q_noise[0:3, 3:6] = np.identity(3)*(term1_2)
         Q_noise[3:6, 0:3] = np.identity(3)*(term1_2)
 
+        #Q_noise = 0.5*Q_noise
         print("THIS IS Q NOISE: ", Q_noise)
 
 

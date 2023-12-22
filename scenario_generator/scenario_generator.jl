@@ -73,10 +73,12 @@ function simulate_scenario(;
 
         #ut is microtesla. 
         #here we have 1e-6 T = 1 uT
+        #commented out so theres no mag bias
         mag_measurement = 1e6 * mag_T .+ mag_std_dev_matrix_uT * randn(3) .+ mag_bias_uT
 
         # this transforms the measurement from the body frame to the IMU frame
         angular_veloctity_deg_s = R_IMU_body * rad2deg.(state.angular_velocity)
+        #commented so there's no gyro bias. 
         gyro_measurement = angular_veloctity_deg_s .+ gyro_std_dev_matrix_deg_s * randn(3) .+ gyro_bias_deg_s
 
         state_ECEF = SD.sECItoECEF(env.time, [state.position; state.velocity])
@@ -141,6 +143,7 @@ function measurements_to_batch_file(
     if !isdir(scenario_directory_path)
         mkdir(scenario_directory_path)
     end
+    
     batch_scenario_file = open(joinpath(scenario_directory_path, "batch_sensor_gps_data.bin"), "w")
 
     try
@@ -231,9 +234,9 @@ end
 state_hist, time_hist, measurement_history = simulate_scenario()
 
 #save the state history using DelimitedFiles
-writedlm("state_history_long.txt", state_hist, ',')
-writedlm("time_hist_long.txt", time_hist, ',')
-writedlm("measurement_hist_long.txt", measurement_history, ',')
+writedlm("state_history_no_biases.txt", state_hist, ',')
+writedlm("time_hist_no_biases.txt", time_hist, ',')
+writedlm("measurement_hist_no_biases.txt", measurement_history, ',')
 
 
 
@@ -245,5 +248,6 @@ measurements_to_batch_file(
     5, # batch sample period for other sensor data
     #joinpath("..", "scenarios", "default_scenario"),
     #joinpath("..", "scenarios", "new_default_scenario"),
-    joinpath("..", "scenarios", "new_default_scenario_long"),
+    #joinpath("..", "scenarios", "new_default_scenario_long"),
+    joinpath("..", "scenarios", "default_scenario_no_biases"),
 )

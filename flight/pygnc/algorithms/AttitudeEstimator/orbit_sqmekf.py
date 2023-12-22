@@ -33,6 +33,12 @@ def process_dynamics(x, u, h):
 
     qnext = L(q)@ dq
 
+    #normalize the dq and try
+
+    qnext = qnext/np.linalg.norm(qnext)
+
+    print("norm of qnext: ", np.linalg.norm(qnext))
+
     x_next = np.hstack((qnext, beta, mag_bias))
 
     return x_next
@@ -189,20 +195,21 @@ class OrbitSQMEKF(SQMEKFCore):
         # #should be 40
         # term3_3 = (40**2) * dt
 
-        #tuning
-        term1 = (0.025*math.pi/180)**2 * dt
+        #tuning from tutorial 
+        term1 = (0.05*math.pi/180)**2 * dt
         #having 1 and 40 here gets the symmetrical plot when the ground truth is plotted inversely
-        term1_1 = (3*math.pi/180)**2 * (dt**3)/3
-        term1_2 = (3*math.pi/180)**2 * (dt**2)/2
-        term2_2 = (3*math.pi/180)**2 * dt
+        term1_1 = (6*math.pi/180)**2 * (dt**3)/3
+        term1_2 = (6*math.pi/180)**2 * (dt**2)/2
+        term2_2 = (6*math.pi/180)**2 * dt
         #should be 40
-        term3_3 = (40**2) * dt
+        term3_3 = (80**2) * dt
 
         Q_noise = block_diag(np.identity(3)*(term1 + term1_1), np.identity(3)*(term2_2), np.identity(3)*(term3_3))
         Q_noise[0:3, 3:6] = np.identity(3)*(term1_2)
         Q_noise[3:6, 0:3] = np.identity(3)*(term1_2)
 
         Q_noise = Q_noise #increase process noise
+
         #Q_noise = np.hstack((np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3, np.identity(3)*3**2 * (5**2)/2)))
 
         #Q_noise = block_diag(np.identity(3)*((0.025**2)*5 + (3*math.pi/180)**2 * (5**3)/3), np.identity(3)*(3*math.pi/180)**2*(5), np.identity(3)*(40**2)*(5))

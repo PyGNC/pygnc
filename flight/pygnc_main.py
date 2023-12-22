@@ -9,33 +9,33 @@ import os
 import sys
 import time
 
-import pygnc.tasks.orbit_estimator as orbit_estimator_task
 from pygnc.configuration import pygnc as pygnc_config
+from pygnc.configuration.tasks import task_list
 
 
 def start_processes():
-    processes = dict()
-    orbit_estimator_p = Process(
-        target=orbit_estimator_task.main, args=(pygnc_config.batch_sensor_gps_filepath,)
-    )
-    orbit_estimator_p.start()
-    processes["orbit_estimator"] = orbit_estimator_p
+    for task in task_list:
+        if task["main"] is not None:
+            # print(f"Starting {task['name']}")
+            p = Process(target=task["main"], args=())
+            p.start()
+            task["process"] = p
+        else:
+            task["process"] = None
 
-    return processes
 
-
-def monitor_processes(processes, timeout):
+def monitor_processes(timeout):
     all_processes_alive = True
     while all_processes_alive:
-        for process_name, process in processes.items():
-            if not process.is_alive():
+        for task in task_list:
+            if (task["process"] is not None) and (not task["process"].is_alive()):
                 all_processes_alive = False
-                print(f"{process_name} has terminated")
+                # print(f"{task['name']} has terminated")
 
 
 def main(pygnc_timeout, spacecraft_time):
     processes = start_processes()
-    monitor_processes(processes, pygnc_timeout)
+    monitor_processes(pygnc_timeout)
 
 
 if __name__ == "__main__":

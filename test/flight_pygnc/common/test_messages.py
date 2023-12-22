@@ -1,3 +1,4 @@
+import brahe
 import numpy as np
 import unittest
 
@@ -5,30 +6,31 @@ from .. import context
 from pygnc.common import messages  # type: ignore
 
 
+def verify_empty_sensor_message(test_case, sm):
+    assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
+    assertNP = lambda x: test_case.assertTrue(isinstance(x, np.ndarray))
+
+    assertNaNs(sm.spacecraft_time)
+    assertNaNs(sm.mag_measurement)
+    assertNaNs(sm.raw_hall)
+    assertNaNs(sm.gyro_measurement)
+    assertNaNs(sm.sun_sensors)
+
+    assertNP(sm.mag_measurement)
+    assertNP(sm.gyro_measurement)
+    assertNP(sm.sun_sensors)
+
+    test_case.assertEqual(len(sm.mag_measurement), 3)
+    test_case.assertEqual(len(sm.gyro_measurement), 3)
+    test_case.assertEqual(len(sm.sun_sensors), 6)
+
+    test_case.assertEqual(len(sm.as_tuple), 5)
+
+
 class TestSensorMessage(unittest.TestCase):
     def test_empty(self):
         sm = messages.SensorMessage()
-        self._verify_empty_sensor_message(sm)
-
-    def _verify_empty_sensor_message(self, sm):
-        assertNaNs = lambda x: self.assertTrue(np.all(np.isnan(x)))
-        assertNP = lambda x: self.assertTrue(isinstance(x, np.ndarray))
-
-        assertNaNs(sm.spacecraft_time)
-        assertNaNs(sm.mag_measurement)
-        assertNaNs(sm.raw_hall)
-        assertNaNs(sm.gyro_measurement)
-        assertNaNs(sm.sun_sensors)
-
-        assertNP(sm.mag_measurement)
-        assertNP(sm.gyro_measurement)
-        assertNP(sm.sun_sensors)
-
-        self.assertEqual(len(sm.mag_measurement), 3)
-        self.assertEqual(len(sm.gyro_measurement), 3)
-        self.assertEqual(len(sm.sun_sensors), 6)
-
-        self.assertEqual(len(sm.as_tuple), 5)
+        verify_empty_sensor_message(self, sm)
 
     def test_empty_msgpack(self):
         sm = messages.SensorMessage()
@@ -37,7 +39,7 @@ class TestSensorMessage(unittest.TestCase):
 
         sm2 = messages.SensorMessage(msgpack_b=b)
 
-        self._verify_empty_sensor_message(sm2)
+        verify_empty_sensor_message(self, sm2)
 
     def test_valid_data(self):
         sc_time = 65432123
@@ -87,42 +89,43 @@ class TestSensorMessage(unittest.TestCase):
         np.testing.assert_almost_equal(raw_hall, sm2.raw_hall)
 
 
+def verify_empty_gps_message(test_case, gm):
+    assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
+    assertNP = lambda x: test_case.assertTrue(isinstance(x, np.ndarray))
+
+    assertNaNs(gm.spacecraft_time)
+    assertNaNs(gm.gps_time_status)
+    assertNaNs(gm.gps_week)
+    assertNaNs(gm.gps_milliseconds)
+    assertNaNs(gm.position_status)
+    assertNaNs(gm.position)
+    assertNaNs(gm.position_sig)
+    assertNaNs(gm.velocity_status)
+    assertNaNs(gm.velocity)
+    assertNaNs(gm.velocity_sig)
+    assertNaNs(gm.v_latency)
+    assertNaNs(gm.differential_age)
+    assertNaNs(gm.solution_age)
+    assertNaNs(gm.sats_tracked)
+    assertNaNs(gm.sats_in_solution)
+
+    assertNP(gm.position)
+    assertNP(gm.position_sig)
+    assertNP(gm.velocity)
+    assertNP(gm.velocity_sig)
+
+    test_case.assertEqual(len(gm.position), 3)
+    test_case.assertEqual(len(gm.position_sig), 3)
+    test_case.assertEqual(len(gm.velocity), 3)
+    test_case.assertEqual(len(gm.velocity_sig), 3)
+
+    test_case.assertEqual(len(gm.as_tuple), 15)
+
+
 class TestGPSMessage(unittest.TestCase):
     def test_empty(self):
         gm = messages.GPSMessage()
-        self._verify_empty_message(gm)
-
-    def _verify_empty_message(self, gm):
-        assertNaNs = lambda x: self.assertTrue(np.all(np.isnan(x)))
-        assertNP = lambda x: self.assertTrue(isinstance(x, np.ndarray))
-
-        assertNaNs(gm.spacecraft_time)
-        assertNaNs(gm.gps_time_status)
-        assertNaNs(gm.gps_week)
-        assertNaNs(gm.gps_milliseconds)
-        assertNaNs(gm.position_status)
-        assertNaNs(gm.position)
-        assertNaNs(gm.position_sig)
-        assertNaNs(gm.velocity_status)
-        assertNaNs(gm.velocity)
-        assertNaNs(gm.velocity_sig)
-        assertNaNs(gm.v_latency)
-        assertNaNs(gm.differential_age)
-        assertNaNs(gm.solution_age)
-        assertNaNs(gm.sats_tracked)
-        assertNaNs(gm.sats_in_solution)
-
-        assertNP(gm.position)
-        assertNP(gm.position_sig)
-        assertNP(gm.velocity)
-        assertNP(gm.velocity_sig)
-
-        self.assertEqual(len(gm.position), 3)
-        self.assertEqual(len(gm.position_sig), 3)
-        self.assertEqual(len(gm.velocity), 3)
-        self.assertEqual(len(gm.velocity_sig), 3)
-
-        self.assertEqual(len(gm.as_tuple), 15)
+        verify_empty_gps_message(self, gm)
 
     def test_empty_msgpack(self):
         gm = messages.GPSMessage()
@@ -131,4 +134,76 @@ class TestGPSMessage(unittest.TestCase):
 
         gm2 = messages.GPSMessage(msgpack_b=b)
 
-        self._verify_empty_message(gm2)
+        verify_empty_gps_message(self, gm2)
+
+
+def verify_empty_orbit_estimate_message(test_case, oem):
+    assertNaNs = lambda x: test_case.assertTrue(np.all(np.isnan(x)))
+    assertNP = lambda x: test_case.assertTrue(isinstance(x, np.ndarray))
+
+    test_case.assertTrue(isinstance(oem.epoch, brahe.epoch.Epoch))
+
+    assertNP(oem.state_estimate)
+    assertNP(oem.disturbance_estimate)
+    assertNP(oem.state_variance)
+    assertNP(oem.disturbance_variance)
+
+    test_case.assertEqual(len(oem.state_estimate), 6)
+    test_case.assertEqual(len(oem.disturbance_estimate), 6)
+    test_case.assertEqual(len(oem.state_variance), 6)
+    test_case.assertEqual(len(oem.disturbance_variance), 6)
+
+    assertNaNs(oem.state_estimate)
+    assertNaNs(oem.disturbance_estimate)
+    assertNaNs(oem.state_variance)
+    assertNaNs(oem.disturbance_variance)
+
+    oem_tup = oem.as_tuple
+    test_case.assertEqual(len(oem_tup), 6)
+    test_case.assertTrue(isinstance(oem_tup[0], str))  # epoch as iso string
+
+    sm_test = TestSensorMessage()
+    verify_empty_sensor_message(sm_test, oem.sensor_message)
+
+
+class TestOrbitEstimateMessage(unittest.TestCase):
+    def test_empty(self):
+        oem = messages.OrbitEstimateMessage()
+        verify_empty_orbit_estimate_message(self, oem)
+
+    def test_empty_msgpack(self):
+        oem = messages.OrbitEstimateMessage()
+        b = oem.to_msgpack_b()
+        self.assertIsInstance(b, bytes)
+
+        oem2 = messages.OrbitEstimateMessage(msgpack_b=b)
+
+        verify_empty_orbit_estimate_message(self, oem2)
+
+
+def verify_empty_sensor_gps_message(test_case, sgm):
+    test_case.assertIsInstance(sgm.sensor_message, messages.SensorMessage)
+    test_case.assertIsInstance(sgm.gps_message, messages.GPSMessage)
+
+    sgm_tup = sgm.as_tuple
+    test_case.assertEqual(len(sgm_tup), 2)
+    test_case.assertEqual(len(sgm_tup[0]), 5)
+    test_case.assertEqual(len(sgm_tup[1]), 15)
+
+    verify_empty_sensor_message(test_case, sgm.sensor_message)
+    verify_empty_gps_message(test_case, sgm.gps_message)
+
+
+class TestSensorGPSMessage(unittest.TestCase):
+    def test_empty(self):
+        sgm = messages.SensorGPSMessage()
+        verify_empty_sensor_gps_message(self, sgm)
+
+    def test_empty_msgpack(self):
+        sgm = messages.SensorGPSMessage()
+        b = sgm.to_msgpack_b()
+        self.assertIsInstance(b, bytes)
+
+        sgm2 = messages.SensorGPSMessage(msgpack_b=b)
+
+        verify_empty_sensor_gps_message(self, sgm2)

@@ -4,6 +4,7 @@ messages.py
 Definitions of messages that are passed around on ZeroMQ.
 Also acts as a common representation of data.
 """
+import brahe
 import msgpack
 import numpy as np
 
@@ -15,7 +16,10 @@ class MsgpackMessage:
 
     def _from_msgpack_b(self, msgpack_b):
         # requires child class to have implemented self._from_tuple(tup)
-        self._from_tuple(msgpack.unpackb(msgpack_b))
+        return self._from_tuple(msgpack.unpackb(msgpack_b))
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.as_tuple}"
 
 
 class SensorMessage(MsgpackMessage):
@@ -56,6 +60,7 @@ class SensorMessage(MsgpackMessage):
             self._gyro_measurement,
             self._sun_sensors,
         ) = tup
+        return self
 
     @property
     def spacecraft_time(self):
@@ -164,6 +169,7 @@ class GPSMessage(MsgpackMessage):
             self._sats_tracked,
             self._sats_in_solution,
         ) = tup
+        return self
 
     @property
     def spacecraft_time(self):
@@ -224,3 +230,131 @@ class GPSMessage(MsgpackMessage):
     @property
     def sats_in_solution(self):
         return self._sats_in_solution
+
+
+class SensorGPSMessage(MsgpackMessage):
+    def __init__(
+        self,
+        sensor_message: SensorMessage = SensorMessage(),
+        gps_message: GPSMessage = GPSMessage(),
+        msgpack_b=None,
+    ):
+        super().__init__()
+        if msgpack_b is not None:
+            # initialize from msgpack data and ignore other entries
+            super()._from_msgpack_b(msgpack_b)
+        else:
+            self._sensor_message = sensor_message
+            self._gps_message = gps_message
+
+    @property
+    def as_tuple(self):
+        return (
+            self._sensor_message.as_tuple,
+            self._gps_message.as_tuple,
+        )
+
+    def _from_tuple(self, tup):
+        (
+            sensor_message_tup,
+            gps_message_tup,
+        ) = tup
+        self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
+        self._gps_message = GPSMessage()._from_tuple(gps_message_tup)
+        return self
+
+    @property
+    def sensor_message(self):
+        return self._sensor_message
+
+    @property
+    def gps_message(self):
+        return self._gps_message
+
+
+class OrbitEstimateMessage(MsgpackMessage):
+    def __init__(
+        self,
+        epoch=brahe.epoch.Epoch("1000-01-01T00:00:00Z"),
+        state_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        disturbance_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        state_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        disturbance_variance=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        sensor_message: SensorMessage = SensorMessage(),
+        msgpack_b=None,
+    ):
+        super().__init__()
+        if msgpack_b is not None:
+            # initialize from msgpack data and ignore other entries
+            super()._from_msgpack_b(msgpack_b)
+        else:
+            self._epoch = epoch
+            self._state_estimate = tuple(state_estimate)
+            self._disturbance_estimate = tuple(disturbance_estimate)
+            self._state_variance = tuple(state_variance)
+            self._disturbance_variance = tuple(disturbance_variance)
+            self._sensor_message = sensor_message
+
+    @property
+    def as_tuple(self):
+        return (
+            self._epoch.isoformat(),
+            self._state_estimate,
+            self._disturbance_estimate,
+            self._state_variance,
+            self._disturbance_variance,
+            self._sensor_message.as_tuple,
+        )
+
+    def _from_tuple(self, tup):
+        (
+            epoch_iso,
+            self._state_estimate,
+            self._disturbance_estimate,
+            self._state_variance,
+            self._disturbance_variance,
+            sensor_message_tup,
+        ) = tup
+        self._epoch = brahe.epoch.Epoch(epoch_iso)
+        self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
+        return self
+
+    @property
+    def epoch(self):
+        return self._epoch
+
+    @property
+    def state_estimate(self):
+        return np.array(self._state_estimate)
+
+    @property
+    def disturbance_estimate(self):
+        return np.array(self._disturbance_estimate)
+
+    @property
+    def state_variance(self):
+        return np.array(self._state_variance)
+
+    @property
+    def disturbance_variance(self):
+        return np.array(self._disturbance_variance)
+
+    @property
+    def sensor_message(self):
+        return self._sensor_message
+
+
+def _get_message_dict():
+    """_get_message_dict()
+    This bit of magic produces a dictionary that allows us to associate message class names with their types
+    """
+    all_classes = globals().values()
+    message_dict = {
+        f"{cls.__name__}": cls
+        for cls in all_classes
+        if isinstance(cls, type) and issubclass(cls, MsgpackMessage)
+    }
+    return message_dict
+
+
+message_dict = _get_message_dict()

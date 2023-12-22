@@ -193,7 +193,7 @@ class TestZMQMessaging(unittest.TestCase):
         del pub
         del sub
 
-    def testSubscribed(self):
+    def test_subscribed(self):
         publisher_port = 6665
         synchronizer_port = 6675
         subscriber_names = ["task_1", "task_2"]

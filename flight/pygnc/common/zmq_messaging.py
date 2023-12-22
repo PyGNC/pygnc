@@ -14,6 +14,7 @@ A few architectural decisions were made here:
 from . import messages
 from ..configuration.messages import message_configuration_dict
 import zmq
+import time
 
 _SYNC_WORD = "SYNC::".encode("utf-8")
 
@@ -22,7 +23,7 @@ def _message_to_filter(message):
     return f"{message.__name__}::"
 
 
-def _recv(socket, block=False):
+def _recieve_with_blocking_option(socket, block=False):
     block_flag = 0 if block else zmq.NOBLOCK
     try:
         raw_message = socket.recv(flags=block_flag)
@@ -35,7 +36,7 @@ def _recv(socket, block=False):
             raise e
 
 
-def zmq_synchronize(publishers, subscribers):
+def zmq_synchronize(publishers=[], subscribers=[]):
     """
     This performs synchronization between the publishers and subscribers belonging to a task.
     All publishers and all subscribers belonging to the task should be provided as inputs.
@@ -48,12 +49,13 @@ def zmq_synchronize(publishers, subscribers):
             all_synchronized &= publisher.synchronizer_update()
 
         for subscriber in subscribers:
-            subscriber.synchronizer_update()
+            all_synchronized &= subscriber.synchronizer_update()
 
         if all_synchronized:
             print(f"Synchronized after {sync_count} iterations")
             break
         sync_count += 1
+        time.sleep(0.01)
 
 
 class zmqMessagePublisher:
@@ -123,12 +125,21 @@ class zmqMessagePublisher:
             its task name on the req-rep connection
          - when the publisher gets the task name, it marks that task as sync'd in self.subscribed
          - once all subscribers report that they are getting messages, the connection is sync'd
+
+         This may fail one or more times as the graph of publishers and subscribers grows.
+         For this reason we catch ZMQErrors and continue attempting to synchronize.
         """
-        self.publisher.send()
-        raw_message = _recv(self.synchronizer, block=False)
-        if raw_message is not None:
-            message = raw_message.decode("utf-8")
-            self._update_subscribed(message)
+        if self._all_subscribed():
+            return True
+
+        try:
+            self.publisher.send(_SYNC_WORD)
+            raw_message = _recieve_with_blocking_option(self.synchronizer, block=False)
+            if raw_message is not None:
+                message = raw_message.decode("utf-8")
+                self._update_subscribed(message)
+        except zmq.ZMQError as e:
+            pass
 
         return self._all_subscribed()
 
@@ -179,12 +190,13 @@ class zmqMessageSubscriber:
             ]
         self.synchronizer = self.context.socket(zmq.REQ)
         self.synchronizer.connect(f"tcp://localhost:{synchronizer_port}")
+        self.synchronized = False
 
         self.task_name = task_name
 
     def receive(self, block=True):
 
-        raw_message = _recv(self.subscriber, block=block)
+        raw_message = _recieve_with_blocking_option(self.subscriber, block=block)
 
         if raw_message is not None:
             filter_len = len(self.message_filter)
@@ -199,9 +211,18 @@ class zmqMessageSubscriber:
         return None
 
     def synchronizer_update(self):
-        raw_message = _recv(self.subscriber, block=False)
-        if raw_message is not None and raw_message == _SYNC_WORD:
-            self.synchronizer.send(self.task_name.encode("utf-8"))
+        # only run if not synchronized
+        if self.synchronized:
             return True
-        else:
-            return False
+
+        try:
+            raw_message = _recieve_with_blocking_option(self.subscriber, block=False)
+            if raw_message is not None and raw_message == _SYNC_WORD:
+                print(f"{self.task_name} sending ack")
+                self.synchronizer.send(self.task_name.encode("utf-8"))
+                self.synchronized = True
+            else:
+                self.synchronized = False
+        except zmq.ZMQError as e:
+            self.synchronized = False
+        return self.synchronized

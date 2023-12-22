@@ -48,7 +48,7 @@ def send_orbit_estimate_message(
 
 
 def main():
-    print("Orbit Estimator Task")
+    # print("Orbit Estimator Task")
 
     oem_pub = zmqMessagePublisher(messages.OrbitEstimateMessage)
 
@@ -62,18 +62,18 @@ def main():
     packet_count = 0
     prev_epoch = None
     for bd in batch_data:
-        print(f"Packet count = {packet_count}")
+        # print(f"Packet count = {packet_count}")
         sensor_messages, gps_message = bd
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
         send_orbit_estimate_message(oem_pub, prev_epoch, orbit_ekf, sensor_messages[-1])
         packet_count += 1
 
-    print("Batch orbit estimation completed")
+    # print("Batch orbit estimation completed")
 
-    print("Final state estimate:")
-    print(f"\t{orbit_ekf.x}")
-    print(f"Final std dev:")
-    print(f"\t{np.diag(orbit_ekf.F)}")
+    # print("Final state estimate:")
+    # print(f"\t{orbit_ekf.x}")
+    # print(f"Final std dev:")
+    # print(f"\t{np.diag(orbit_ekf.F)}")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from pygnc.configuration.tasks import task_list
 def start_processes():
     for task in task_list:
         if task["main"] is not None:
-            print(f"Starting {task['name']}")
+            # print(f"Starting {task['name']}")
             p = Process(target=task["main"], args=())
             p.start()
             task["process"] = p
@@ -30,7 +30,7 @@ def monitor_processes(timeout):
         for task in task_list:
             if (task["process"] is not None) and (not task["process"].is_alive()):
                 all_processes_alive = False
-                print(f"{task['name']} has terminated")
+                # print(f"{task['name']} has terminated")
 
 
 def main(pygnc_timeout, spacecraft_time):

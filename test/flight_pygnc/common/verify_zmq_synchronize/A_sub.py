@@ -1,7 +1,7 @@
 # this is not a unit test
 import time
 
-from .. import context
+from ... import context
 from pygnc.common import messages  # type: ignore
 from pygnc.common import zmq_messaging  # type: ignore
 

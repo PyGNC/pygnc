@@ -55,7 +55,7 @@ def zmq_synchronize(publishers=[], subscribers=[]):
             print(f"Synchronized after {sync_count} iterations")
             break
         sync_count += 1
-        time.sleep(0.01)
+        time.sleep(0.1)
 
 
 class zmqMessagePublisher:
@@ -80,6 +80,7 @@ class zmqMessagePublisher:
             publisher_port = message_configuration_dict[message_type.__name__][
                 "publisher_port"
             ]
+        self.publisher_port = publisher_port
         self.publisher = self.context.socket(zmq.PUB)
         self.publisher.bind(f"tcp://*:{publisher_port}")
 
@@ -134,13 +135,20 @@ class zmqMessagePublisher:
 
         try:
             self.publisher.send(_SYNC_WORD)
-            raw_message = _recieve_with_blocking_option(self.synchronizer, block=False)
-            if raw_message is not None:
-                message = raw_message.decode("utf-8")
-                self._update_subscribed(message)
+            while True:
+                raw_message = _recieve_with_blocking_option(
+                    self.synchronizer, block=False
+                )
+                if raw_message is not None:
+                    message = raw_message.decode("utf-8")
+                    self._update_subscribed(message)
+                else:
+                    break
         except zmq.ZMQError as e:
+            print(e)
             pass
 
+        print(f"{self.publisher_port} subscribed = {self.subscribed}")
         return self._all_subscribed()
 
 
@@ -177,6 +185,7 @@ class zmqMessageSubscriber:
             publisher_port = message_configuration_dict[message_type.__name__][
                 "publisher_port"
             ]
+        self.publisher_port = publisher_port
 
         self.subscriber.setsockopt_string(
             zmq.SUBSCRIBE, ""
@@ -188,6 +197,7 @@ class zmqMessageSubscriber:
             synchronizer_port = message_configuration_dict[message_type.__name__][
                 "synchronizer_port"
             ]
+        self.synchronizer_port = synchronizer_port
         self.synchronizer = self.context.socket(zmq.REQ)
         self.synchronizer.connect(f"tcp://localhost:{synchronizer_port}")
         self.synchronized = False
@@ -218,11 +228,14 @@ class zmqMessageSubscriber:
         try:
             raw_message = _recieve_with_blocking_option(self.subscriber, block=False)
             if raw_message is not None and raw_message == _SYNC_WORD:
-                print(f"{self.task_name} sending ack")
+                print(
+                    f"{self.task_name} got sync from {self.publisher_port} sending ack to {self.synchronizer_port}"
+                )
                 self.synchronizer.send(self.task_name.encode("utf-8"))
                 self.synchronized = True
             else:
                 self.synchronized = False
         except zmq.ZMQError as e:
+            print(e)
             self.synchronized = False
         return self.synchronized

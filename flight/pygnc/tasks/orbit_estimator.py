@@ -9,9 +9,10 @@ from ..configuration import orbit_estimator as oe_config
 from ..configuration import pygnc as pygnc_config
 from ..algorithms.OrbitEstimator import OrbitEKF
 
+
 def predict_orbit_ekf(orbit_ekf, prev_epoch, dt=5.0):
     orbit_ekf.predict(dt)
-    new_epoch = prev_epoch + dt # addition of seconds is defined in brahe
+    new_epoch = prev_epoch + dt  # addition of seconds is defined in brahe
     return new_epoch
 
 
@@ -28,7 +29,7 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
     state_measurement_eci = brahe.frames.sECEFtoECI(
         measurement_epoch, state_measurement_ecef
     )
-    
+
     if prev_epoch is None:
         # need to initialize ekf state with first measurement
         orbit_ekf.initialize_state(state_measurement_eci)
@@ -38,7 +39,6 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
         orbit_ekf.update(state_measurement_eci)
 
     return measurement_epoch
-
 
 
 def send_orbit_estimate_message(
@@ -68,9 +68,8 @@ def main():
     batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
         pygnc_config.batch_sensor_gps_filepath
     )
-    
 
-    # We predict the next state every 5 sec 
+    # We predict the next state every 5 sec
     # Every 25 sec, we process the measurement packet with an EKF update
     packet_count = 0
     prev_epoch = None
@@ -85,12 +84,11 @@ def main():
         packet_count += 1
 
         estimates.append(orbit_ekf.x)
-        for i in range(in_between_prediction_dt-1):
+        for i in range(in_between_prediction_dt - 1):
             prev_epoch = predict_orbit_ekf(orbit_ekf, prev_epoch)
             estimates.append(orbit_ekf.x)
 
     # print("Batch orbit estimation completed")
-
 
     # print("Final state estimate:")
     # print(f"\t{orbit_ekf.x}")

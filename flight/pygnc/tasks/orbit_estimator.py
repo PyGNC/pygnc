@@ -18,12 +18,15 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
     state_measurement_ecef = np.concatenate(
         (gps_message.position, gps_message.velocity)
     )
+
     measurement_epoch = transformations.gps_week_milliseconds_to_brahe_epoch(
         gps_message.gps_week, gps_message.gps_milliseconds
     )
+
     state_measurement_eci = brahe.frames.sECEFtoECI(
         measurement_epoch, state_measurement_ecef
     )
+    
     if prev_epoch is None:
         # need to initialize ekf state with first measurement
         orbit_ekf.initialize_state(state_measurement_eci)
@@ -33,6 +36,7 @@ def update_orbit_ekf(orbit_ekf, gps_message, prev_epoch=None):
         orbit_ekf.update(state_measurement_eci)
 
     return measurement_epoch
+
 
 
 def main(batch_gps_sensor_data_filepath):
@@ -45,6 +49,7 @@ def main(batch_gps_sensor_data_filepath):
     batch_data = data_parsing.unpack_batch_sensor_gps_file_to_messages_iterable(
         batch_gps_sensor_data_filepath
     )
+    
 
     # We predict the next state every 1 sec 
     # Every 25 sec, we process the measurement packet with an EKF update
@@ -53,33 +58,29 @@ def main(batch_gps_sensor_data_filepath):
     in_prediction = 5
 
     estimates = []
-
+    j = 0
     for bd in batch_data:
         print(f"Packet count = {packet_count}")
         _, gps_message = bd
+
         prev_epoch = update_orbit_ekf(orbit_ekf, gps_message, prev_epoch)
         packet_count += 1
 
         estimates.append(orbit_ekf.x)
-
         for i in range(in_prediction-1):
             prev_epoch = predict_orbit_ekf(orbit_ekf, prev_epoch)
-
             estimates.append(orbit_ekf.x)
 
     print("Batch orbit estimation completed")
 
-
-
-    import matplotlib.pyplot as plt
-    estimates = np.array(estimates)
-    ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/default_scenario/state_hist.txt', delimiter=',')[::50, :6] # every 5 sec
-    #ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/default_scenario/state_hist.txt', delimiter=',')[::250, :6] # every 25 sec
-    
+    """estimates = np.array(estimates)
     plot_size = estimates.shape[0]
-    print(plot_size)
-    print(estimates.shape)
-    print(ground_truth_states.shape)
+    import matplotlib.pyplot as plt
+    ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/default_scenario/state_hist.txt', delimiter=',')[199:, :] # 20s delay on the txt file
+    #ground_truth_states = np.loadtxt('/home/ibrahima/CMU/pygnc/scenarios/long_scenario/state_hist.txt', delimiter=',')[199:, :]
+    #ground_truth_states = ground_truth_states[::250, :6] # every 25 sec
+    ground_truth_states = ground_truth_states[::50, :6] # every 5 sec
+
 
     fig1, axs1 = plt.subplots(3)
     fig1.suptitle('Position estimation')
@@ -110,7 +111,7 @@ def main(batch_gps_sensor_data_filepath):
     axs2[2].plot(estimates[:,5], color='blue', label='est')
     axs2[2].plot(ground_truth_states[:plot_size,5], color='red', label='gt')
     axs2[2].set_title('zdot')
-    axs2[2].legend() 
+    axs2[2].legend()
 
     fig3, axs3 = plt.subplots(2)
     fig3.suptitle('Residual orbit estimation')
@@ -125,10 +126,11 @@ def main(batch_gps_sensor_data_filepath):
     axs3[1].legend() 
     axs3[1].set_title('Velocity')
 
-
-    fig1.savefig('scenarios/default_scenario/position_estimation.png')
-    fig2.savefig('scenarios/default_scenario/velocity_estimation.png')
-    fig3.savefig('scenarios/default_scenario/residuals.png')
+    folder_path = 'scenarios/default_scenario/'
+    #folder_path = 'scenarios/long_scenario/'
+    fig1.savefig(folder_path + 'position_estimation.png')
+    fig2.savefig(folder_path + 'velocity_estimation.png')
+    fig3.savefig(folder_path + 'residuals.png')"""
 
     print("Final state estimate:")
     print(f"\t{orbit_ekf.x}")

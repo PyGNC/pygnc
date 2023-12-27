@@ -43,7 +43,10 @@ def process_dynamics(x):
     beta = np.array(x[9:12])
 
     # drag coefficient
-    cd = 2.0
+    #cd = 2.0
+
+    #drag coefficient from models.jl
+    cd = 2.2
 
     # cross sectional area (m^2)
     A = 0.1
@@ -124,13 +127,17 @@ class OrbitEKF(EKFCore):
         std_gps_measurement = 10
 
         # standard devation of the GPS velocity measurement in m/s
-        std_velocity = 0.001
+        #std_velocity = 0.001
         # switch depending if we are using an accuracy of mm/s or cm/s on the velocity
-        # std_velocity = 0.01
+        std_velocity = 0.01
 
         # tuning parameters for the first order gauss markov model
         q_betas = 2e-9 * np.ones(3)
         q_eps = 5.5e-11 * np.ones(3)
+
+        #update testing
+        #q_betas = 9e-9 * np.ones(3)
+        #q_eps = 5.5e-11 * np.ones(3)
 
         # measurement noise matrix
         R_measure = np.identity(6) * np.hstack(

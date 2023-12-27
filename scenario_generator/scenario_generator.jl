@@ -20,7 +20,7 @@ end
 
 function simulate_scenario(;
     #1 is the hour
-    batch_length_s::Int=3 * 60 * 60, # number of seconds of sensor data to provide
+    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
     sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
@@ -81,6 +81,8 @@ function simulate_scenario(;
         #commented so there's no gyro bias. 
         gyro_measurement = angular_veloctity_deg_s .+ gyro_std_dev_matrix_deg_s * randn(3) .+ gyro_bias_deg_s
 
+        println("this is environment time: ", env.time)
+        println("this is the state: ", state)
         state_ECEF = SD.sECItoECEF(env.time, [state.position; state.velocity])
         gps_position = state_ECEF[1:3] .+ position_std_dev_matrix * randn(3)
         gps_velocity = state_ECEF[4:6] .+ velocity_std_dev_matrix * randn(3)
@@ -190,7 +192,7 @@ end
 
 function generate_scenario(
     scenario_directory_path::AbstractString;
-    batch_length_s::Int=3 * 60 * 60, # number of seconds of sensor data to provide
+    batch_length_s::Int=1 * 60 * 60, # number of seconds of sensor data to provide
     batch_gps_sample_period_s::Int=25, # batch sample period for gps measurements
     batch_sensor_sample_period_s::Int=5, # batch sample period for other sensor data
     sequential_length_s::Int=60, # number of seconds to run simulation for after batch data generated
@@ -234,20 +236,20 @@ end
 state_hist, time_hist, measurement_history = simulate_scenario()
 
 #save the state history using DelimitedFiles
-writedlm("state_history_no_biases.txt", state_hist, ',')
-writedlm("time_hist_no_biases.txt", time_hist, ',')
-writedlm("measurement_hist_no_biases.txt", measurement_history, ',')
+writedlm("state_history_test.txt", state_hist, ',')
+writedlm("time_hist_test.txt", time_hist, ',')
+writedlm("measurement_hist_test.txt", measurement_history, ',')
 
-
-
+#
 measurements_to_batch_file(
     measurement_history,
     #changed from 1 to 3
-    3 * 60 * 60, # number of seconds of sensor data to provide
+    1 * 60 * 60, # number of seconds of sensor data to provide
     25, # batch sample period for gps measurements
     5, # batch sample period for other sensor data
     #joinpath("..", "scenarios", "default_scenario"),
     #joinpath("..", "scenarios", "new_default_scenario"),
     #joinpath("..", "scenarios", "new_default_scenario_long"),
-    joinpath("..", "scenarios", "default_scenario_no_biases"),
+    #joinpath("..", "scenarios", "default_scenario_no_biases"),
+    joinpath("..", "scenarios", "test_scenario"),
 )

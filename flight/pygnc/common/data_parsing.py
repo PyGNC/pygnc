@@ -1,8 +1,10 @@
 import struct
 import numpy as np
+import brahe
 
 from . import constants
 from . import messages
+from . import transformations
 
 
 def unpack_batch_gps_packet(gps_packet):
@@ -62,6 +64,79 @@ def batch_gps_data_to_message(gps_data):
         sats_in_solution=gps_data[22],
     )
 
+def twosComp(num,bitCnt):
+    retVal = num
+    if retVal >= 2<<(bitCnt-2):
+        retVal -= 2<<(bitCnt-1)
+    return retVal
+
+def unpack_rng_packet(filename):
+    FILENAME = filename
+    GPS_LEN = 102
+    RNG_LEN = 12
+    RNG_PARAM = (
+        0xA0, # SF10
+        0x18, # BW = 812.5 kHz
+        )
+    BW_CONV = RNG_PARAM[1] * 36621.09375
+    RNG_IDS = (74,75,76,77)
+
+    GPS_BUFF = bytearray(b'g\xaaD' + b'\x00'*100)
+    gps_view = memoryview(GPS_BUFF)
+    csv_data = []
+
+    with open(FILENAME,'rb') as f:
+        data=True
+        while data:
+            data = f.read(2)
+            if data:
+                """
+                    for all intents and purposes, consider GPS solution to be at
+                    same spacecraft time as the RNG data that follows it.
+                    (within 1 second)
+                """
+                if data == b'\xaaD':
+                    # GPS
+                    f.readinto(gps_view[3:])
+                    # print(f'binary GPS {binascii.hexlify(gps_view)}')
+                    if gps_view[-2:] != b'\r\n':
+                        print('gps frame error??')
+                    else:
+                        _ecef = struct.unpack('<dddfffIdddffffffBB',gps_view[11:101])
+                        gps_data = (
+                            int.from_bytes(gps_view[4:6],"little"),       # GPS week
+                            int.from_bytes(gps_view[6:10],"little")/1000,  # time of week (s)
+                            gps_view[10], # pos sol status
+                            ) + _ecef
+                else:
+                    # RANGE DATA
+                    data+=f.read(RNG_LEN-2)
+                    # clear bit 20 of efe
+                    if data[0] not in RNG_IDS:
+                        print(f'Range error?? {data}')
+                    else:
+                        csv_data.append(gps_data+(
+                            data[0],                           # range partner ID
+                            -1*data[1]/2,                      # range rssi
+                            int.from_bytes(data[2:6],'big'),   # spacecraft time
+                            int.from_bytes(data[6:9],'big'),   # raw freq err
+                            int.from_bytes(data[9:],'big'),    # raw distance
+                            1.55*twosComp(int.from_bytes(data[6:9],'big')&0x0FFFFF,20)/(1625000/RNG_PARAM[1]), # freq err
+                            twosComp(int.from_bytes(data[9:],'big'),24)/BW_CONV,   # distance
+                        ))
+    range_estimator_data_ecef=[]
+    for line in csv_data:
+        range_estimator_data_ecef.append([line[0],line[1],line[3],line[4],line[5],line[10],line[11],line[12],line[21],line[-1]])
+    # GPS Week, GPS Time (s), ECEF-X (m), ECEF-Y (m), ECEF-Z (m), ECEF-XV (m/s), ECEF-YV (m/s), ECEF-ZV (m/s), Distance (m)
+    
+    range_estimator_data_ecef = np.array(range_estimator_data_ecef)
+    measurement_epoch = [transformations.gps_week_milliseconds_to_brahe_epoch(week, milliseconds) for week, milliseconds in zip(range_estimator_data_ecef[:, 0], range_estimator_data_ecef[:, 1])]
+    state_measurement_ecef = np.hstack( (range_estimator_data_ecef[:, 2:5], range_estimator_data_ecef[:, 5:8]) )
+    state_measurement_eci = brahe.frames.sECEFtoECI(measurement_epoch[0], state_measurement_ecef[0,:])
+    # range_estimator_data_eci = np.concatenate( (range_estimator_data_ecef[:, 0:2], state_measurement_eci, range_estimator_data_ecef[:, 5:6], range_estimator_data_ecef[:, 9:10]) , axis=1)
+    range_estimator_data_eci = np.concatenate( (range_estimator_data_ecef[:, 0:2], state_measurement_eci, range_estimator_data_ecef[:, 9:11]) , axis=1)
+
+    return range_estimator_data_eci
 
 def opt3001_raw_to_lux(raw):
     exponent = (raw & 0xF000) >> 12

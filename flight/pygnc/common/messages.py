@@ -342,6 +342,53 @@ class OrbitEstimateMessage(MsgpackMessage):
     @property
     def sensor_message(self):
         return self._sensor_message
+    
+class RangingEstimateMessage(MsgpackMessage):
+    def __init__(
+        self,
+        epoch=brahe.epoch.Epoch("1000-01-01T00:00:00Z"),
+        state_estimate=(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan),
+        sensor_message: SensorMessage = SensorMessage(),
+        msgpack_b=None,
+    ):
+        super().__init__()
+        if msgpack_b is not None:
+            # initialize from msgpack data and ignore other entries
+            super()._from_msgpack_b(msgpack_b)
+        else:
+            self._epoch = epoch
+            self._state_estimate = tuple(state_estimate)
+            self._sensor_message = sensor_message
+
+    @property
+    def as_tuple(self):
+        return (
+            self._epoch.isoformat(),
+            self._state_estimate,
+            self._sensor_message.as_tuple,
+        )
+
+    def _from_tuple(self, tup):
+        (
+            epoch_iso,
+            self._state_estimate,
+            sensor_message_tup,
+        ) = tup
+        self._epoch = brahe.epoch.Epoch(epoch_iso)
+        self._sensor_message = SensorMessage()._from_tuple(sensor_message_tup)
+        return self
+
+    @property
+    def epoch(self):
+        return self._epoch
+
+    @property
+    def state_estimate(self):
+        return np.array(self._state_estimate)
+
+    @property
+    def sensor_message(self):
+        return self._sensor_message
 
 
 def _get_message_dict():

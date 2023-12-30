@@ -75,7 +75,7 @@ def main():
     prev_epoch = None
     in_between_prediction_dt = 5
 
-    #estimates = []
+    # estimates = []
     for bd in batch_data:
         # print(f"Packet count = {packet_count}")
         sensor_messages, gps_message = bd
@@ -83,10 +83,10 @@ def main():
         send_orbit_estimate_message(oem_pub, prev_epoch, orbit_ekf, sensor_messages[-1])
         packet_count += 1
 
-        #estimates.append(orbit_ekf.x)
+        # estimates.append(orbit_ekf.x)
         for i in range(in_between_prediction_dt - 1):
             prev_epoch = predict_orbit_ekf(orbit_ekf, prev_epoch)
-            #estimates.append(orbit_ekf.x)
+            # estimates.append(orbit_ekf.x)
 
     # print("Batch orbit estimation completed")
 

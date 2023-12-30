@@ -78,7 +78,6 @@ class zmqMessageSubscriber:
         self.subscriber.connect(f"tcp://localhost:{port}")
 
     def receive(self, block=True):
-
         block_flag = 0 if block else zmq.NOBLOCK
 
         try:

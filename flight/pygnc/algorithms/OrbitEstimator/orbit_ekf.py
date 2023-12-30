@@ -1,7 +1,7 @@
 import autograd.numpy as np
 import brahe
 from scipy.linalg import sqrtm
-
+from scipy.linalg import qr
 from .ekf_core import EKFCore
 
 
@@ -160,3 +160,24 @@ class OrbitEKF(EKFCore):
         # initial state
         x0 = np.concatenate([state_eci, np.zeros(3), 1e-3 * np.ones(3)])
         super().initialize_state(x0)
+
+    def predict(self, dt):
+        self.x, self.F = super().predict(dt)
+
+    def update(self, y):
+        """
+        EKF update step with no prediction
+        """
+        # innovation step
+        Z, C = self.innovation(y, self.x, self.F)
+
+        # calculate kalman gain
+        L = self.kalman_gain(self.F, C)
+
+        # update the state
+        self.x = self.x + L @ Z
+
+        e = np.vstack((self.F @ (np.identity(12) - L @ C).T, self.sqrt_R @ L.T))
+
+        # update the square root covariance
+        _, self.F = qr(e, mode="economic")

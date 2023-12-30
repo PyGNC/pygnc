@@ -215,11 +215,26 @@ function generate_scenario(
 
 end
 
-state_hist, time_hist, measurement_history = simulate_scenario()
+state_hist, time_hist, measurement_history = simulate_scenario(batch_length_s=3 * 60 * 60)
+
 measurements_to_batch_file(
     measurement_history,
-    1 * 60 * 60, # number of seconds of sensor data to provide
+    3 * 60 * 60, # number of seconds of sensor data to provide
     25, # batch sample period for gps measurements
     5, # batch sample period for other sensor data
-    joinpath("..", "scenarios", "default_scenario"),
+    joinpath("scenarios", "default_scenario"),
 )
+
+"""using DelimitedFiles
+writedlm("state_hist.txt", state_hist, ',')
+writedlm("time_hist.txt", time_hist, ',')
+writedlm("measurement_hist.txt", measurement_history, ',')"""
+
+
+"""gg = []
+n= size(measurement_history, 1)
+for i=1:n
+    push!(gg, [measurement_history[i].gps_position; measurement_history[i].gps_velocity])
+end
+
+g = Matrix(transpose(hcat(gg...)))"""
